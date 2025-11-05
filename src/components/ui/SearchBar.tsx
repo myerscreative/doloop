@@ -28,7 +28,7 @@ export function SearchBar({ loops, onSelect }: SearchBarProps) {
   };
 
   return (
-    <div className="relative mb-6">
+    <div className="relative">
       <div className="relative">
         <input
           type="text"
@@ -37,7 +37,7 @@ export function SearchBar({ loops, onSelect }: SearchBarProps) {
           onFocus={() => setShowResults(true)}
           onBlur={() => setTimeout(() => setShowResults(false), 200)}
           placeholder="Search loops and tasks..."
-          className="w-full px-4 py-3 pl-12 rounded-xl border border-gray-300 focus:ring-2 focus:ring-yellow-500 focus:border-transparent text-gray-900"
+          className="w-full px-4 py-4 pl-12 rounded-xl border border-gray-300 focus:ring-2 focus:ring-yellow-500 focus:border-transparent text-gray-900"
           aria-label="Search loops and tasks"
         />
         <svg

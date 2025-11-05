@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import Image from 'next/image';
 
 type Theme = 'minimal' | 'playful' | 'professional';
 
@@ -11,6 +12,7 @@ interface DoLoopLogoProps {
   animated?: boolean;
   headerLight?: boolean; // For use on dark backgrounds
   className?: string;
+  useSVGLogo?: boolean; // Use the new SVG logo instead of text-based
 }
 
 export function DoLoopLogo({
@@ -20,15 +22,39 @@ export function DoLoopLogo({
   animated = true,
   headerLight = false,
   className = '',
+  useSVGLogo = true, // Default to using SVG logo
 }: DoLoopLogoProps) {
   // Size configurations
   const sizes = {
-    sm: { text: 'text-xl', bee: 24 },
-    md: { text: 'text-2xl', bee: 32 },
-    lg: { text: 'text-4xl', bee: 48 },
+    sm: { text: 'text-xl', bee: 24, svg: 120 },
+    md: { text: 'text-2xl', bee: 32, svg: 160 },
+    lg: { text: 'text-4xl', bee: 48, svg: 240 },
   };
   
-  // Theme configurations
+  const sizeConfig = sizes[size];
+  
+  // If using SVG logo, render it directly
+  if (useSVGLogo) {
+    return (
+      <motion.div
+        className={`inline-block ${className}`}
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.5 }}
+      >
+        <Image
+          src="/doloop-logo.svg"
+          alt="DoLoop Logo"
+          width={sizeConfig.svg}
+          height={sizeConfig.svg}
+          className="h-auto"
+          priority
+        />
+      </motion.div>
+    );
+  }
+  
+  // Theme configurations for text-based logo
   const themeConfig = {
     minimal: {
       doColor: headerLight ? '#FFFFFF' : '#FFB800',
@@ -51,7 +77,6 @@ export function DoLoopLogo({
   };
   
   const config = themeConfig[theme];
-  const sizeConfig = sizes[size];
   
   // Show bee based on theme and prop
   const displayBee = theme === 'professional' ? false : showBee;

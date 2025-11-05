@@ -30,6 +30,9 @@ export interface Loop {
   // Favorites
   isFavorite?: boolean;
   
+  // Color for the loop icon
+  color?: string;
+  
   // Loop items/steps
   items?: LoopItem[];
 }
@@ -45,8 +48,18 @@ export interface LoopItem {
   dueDate?: string; // ISO date string
   notes?: string;
   imageUrl?: string;
+  tags?: string[]; // Array of tag labels
+  attachments?: Attachment[]; // Attached files
   // Sub-tasks
   subTasks?: SubTask[];
+}
+
+export interface Attachment {
+  id: string;
+  name: string;
+  url: string;
+  type?: string;
+  size?: number;
 }
 
 export interface SubTask {
@@ -89,6 +102,18 @@ export interface MomentumData {
 }
 
 /**
+ * Library Folder - For organizing loops in the library
+ */
+export interface LibraryFolder {
+  id: string;
+  name: string;
+  color: string;
+  order: number;
+  isDefault?: boolean; // For built-in folders like Favorites
+  filterType?: LoopType | 'all' | 'shared' | 'favorites'; // How to filter loops
+}
+
+/**
  * Helper type guards
  */
 
@@ -123,4 +148,14 @@ export const COMPLETION_COLOR = {
   gradient: ['#4CAF50', '#388E3C'],
   solid: '#4CAF50',
 };
+
+/**
+ * Default colors for Loop Library cards
+ */
+export const LOOP_LIBRARY_COLORS = [
+  '#FEC041', // Orange-yellow (Favorites)
+  '#FE356C', // Pink (Personal)
+  '#0CB6CC', // Cyan (Work)
+  '#7952B4', // Purple (Shared)
+] as const;
 

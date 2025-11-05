@@ -1,46 +1,81 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Header from '@/components/layout/Header';
 import LoopCard from '@/components/loops/LoopCard';
 import { mockLoops } from '@/lib/mockData';
-import { LoopType } from '@/types/loop';
-import { motion } from 'framer-motion';
+import { LibraryFolder } from '@/types/loop';
+import { motion, Reorder } from 'framer-motion';
+import { getStoredFolders, addFolder, reorderFolders } from '@/lib/loopStorage';
+import { Plus } from 'lucide-react';
 
 export default function LibraryPage() {
-  const [selectedCategory, setSelectedCategory] = useState<LoopType | 'all' | 'shared'>('all');
+  const [folders, setFolders] = useState<LibraryFolder[]>([]);
+  const [selectedFolder, setSelectedFolder] = useState<LibraryFolder | null>(null);
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  
+  // Load folders from storage on mount
+  useEffect(() => {
+    const storedFolders = getStoredFolders();
+    setFolders(storedFolders);
+    if (storedFolders.length > 0) {
+      setSelectedFolder(storedFolders[0]);
+    }
+  }, []);
   
   const handleLoopClick = (loopId: string) => {
     // TODO: Navigate to loop detail page
   };
   
-  // Organize loops by category
-  const loopsByCategory = {
-    all: mockLoops,
-    daily: mockLoops.filter(loop => loop.type === 'daily'),
-    work: mockLoops.filter(loop => loop.type === 'work'),
-    personal: mockLoops.filter(loop => loop.type === 'personal'),
-    shared: [], // Empty for now
-  };
-  
-  const currentLoops = loopsByCategory[selectedCategory];
-  
-  const categories = [
-    { id: 'all' as const, name: 'Favorites', color: 'yellow' },
-    { id: 'personal' as const, name: 'Personal', color: 'red' },
-    { id: 'work' as const, name: 'Work', color: 'cyan' },
-    { id: 'shared' as const, name: 'Shared', color: 'gray' },
-  ];
-  
-  const getCategoryColor = (color: string) => {
-    const colors = {
-      yellow: 'bg-yellow-500 text-white',
-      red: 'bg-red-500 text-white',
-      cyan: 'bg-cyan-500 text-white',
-      gray: 'bg-gray-500 text-white',
+  const handleCreateFolder = () => {
+    if (!newFolderName.trim()) return;
+    
+    const colors = ['#FEC041', '#FE356C', '#0CB6CC', '#7952B4', '#9C27B0', '#FF9800', '#4CAF50'];
+    const randomColor = colors[Math.floor(Math.random() * colors.length)];
+    
+    const newFolder: LibraryFolder = {
+      id: `folder-${Date.now()}`,
+      name: newFolderName.trim(),
+      color: randomColor,
+      order: folders.length,
+      isDefault: false,
     };
-    return colors[color as keyof typeof colors] || 'bg-gray-100 text-gray-700';
+    
+    addFolder(newFolder);
+    setFolders([...folders, newFolder]);
+    setNewFolderName('');
+    setIsCreatingFolder(false);
   };
+  
+  const handleReorder = (reorderedFolders: LibraryFolder[]) => {
+    setFolders(reorderedFolders);
+    reorderFolders(reorderedFolders);
+  };
+  
+  // Filter loops based on selected folder
+  const getFilteredLoops = () => {
+    if (!selectedFolder) return [];
+    
+    switch (selectedFolder.filterType) {
+      case 'favorites':
+        return mockLoops.filter(loop => loop.isFavorite);
+      case 'personal':
+        return mockLoops.filter(loop => loop.type === 'personal');
+      case 'work':
+        return mockLoops.filter(loop => loop.type === 'work');
+      case 'daily':
+        return mockLoops.filter(loop => loop.type === 'daily');
+      case 'shared':
+        return []; // Empty for now
+      case 'all':
+        return mockLoops;
+      default:
+        return mockLoops;
+    }
+  };
+  
+  const currentLoops = getFilteredLoops();
   
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
@@ -48,7 +83,7 @@ export default function LibraryPage() {
       <Header userName="Robert" />
       
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-8">
+      <main className="max-w-[450px] mx-auto px-4 md:px-6 py-4 md:py-8">
         {/* Page Title */}
         <motion.div
           className="mb-8"
@@ -60,39 +95,107 @@ export default function LibraryPage() {
           <p className="text-gray-600">Browse loops by category</p>
         </motion.div>
         
-        {/* Category Grid */}
+        {/* Folder Grid with Drag & Drop */}
         <motion.div
-          className="mb-8"
+          className="mb-8 grid grid-cols-2 gap-3"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.5 }}
         >
-          <div className="grid grid-cols-2 gap-3">
-            {categories.map((category) => (
-              <button
-                key={category.id}
-                onClick={() => setSelectedCategory(category.id)}
-                className={`py-4 px-4 rounded-xl font-medium transition-all text-left ${
-                  selectedCategory === category.id
-                    ? `${getCategoryColor(category.color)} shadow-md`
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+          <Reorder.Group
+            axis="y"
+            values={folders}
+            onReorder={handleReorder}
+            className="contents"
+          >
+            {folders.map((folder) => (
+              <Reorder.Item
+                key={folder.id}
+                value={folder}
+                className="cursor-grab active:cursor-grabbing"
               >
-                {category.name}
-              </button>
+                <button
+                  onClick={() => setSelectedFolder(folder)}
+                  style={{
+                    backgroundColor: selectedFolder?.id === folder.id ? folder.color : undefined,
+                  }}
+                  className={`w-full py-4 px-4 rounded-xl font-medium transition-all text-left ${
+                    selectedFolder?.id === folder.id
+                      ? 'text-white shadow-md'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {folder.name}
+                </button>
+              </Reorder.Item>
             ))}
-          </div>
+          </Reorder.Group>
+          
+          {/* Add New Folder Button */}
+          <motion.button
+            onClick={() => setIsCreatingFolder(true)}
+            className="py-4 px-4 rounded-xl border-2 border-dashed border-gray-300 hover:border-gray-400 hover:bg-gray-50 transition-all flex items-center justify-center"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            <Plus className="w-8 h-8 text-gray-400" />
+          </motion.button>
         </motion.div>
         
-        {/* Loops List for Selected Category */}
-        {currentLoops.length > 0 && (
+        {/* Create Folder Dialog */}
+        {isCreatingFolder && (
+          <motion.div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            onClick={() => setIsCreatingFolder(false)}
+          >
+            <motion.div
+              className="bg-white rounded-xl p-6 max-w-[450px] w-full"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Create New Folder</h3>
+              <input
+                type="text"
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleCreateFolder();
+                  if (e.key === 'Escape') setIsCreatingFolder(false);
+                }}
+                placeholder="Folder name"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+                autoFocus
+              />
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setIsCreatingFolder(false)}
+                  className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCreateFolder}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Create
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+        
+        {/* Loops List for Selected Folder */}
+        {selectedFolder && currentLoops.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4, duration: 0.5 }}
           >
             <h2 className="text-lg font-bold text-gray-900 mb-4">
-              {selectedCategory === 'all' ? 'All Loops' : categories.find(c => c.id === selectedCategory)?.name}
+              {selectedFolder.name}
             </h2>
             <div className="bg-white rounded-xl shadow-sm divide-y divide-gray-100">
               {currentLoops.map((loop) => (
@@ -107,7 +210,7 @@ export default function LibraryPage() {
         )}
         
         {/* Empty State */}
-        {currentLoops.length === 0 && (
+        {selectedFolder && currentLoops.length === 0 && (
           <motion.div
             className="text-center py-16 bg-white rounded-xl shadow-sm"
             initial={{ opacity: 0 }}
@@ -116,12 +219,12 @@ export default function LibraryPage() {
           >
             <div className="text-6xl mb-4">📚</div>
             <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              No loops in this category
+              No loops in this folder
             </h3>
             <p className="text-gray-600">
-              {selectedCategory === 'shared' 
+              {selectedFolder.filterType === 'shared' 
                 ? 'No shared loops yet'
-                : 'Select a different category or create your first loop'}
+                : 'Select a different folder or create your first loop'}
             </p>
           </motion.div>
         )}

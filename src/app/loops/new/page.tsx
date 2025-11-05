@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Header from '@/components/layout/Header';
 import { motion } from 'framer-motion';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -22,6 +22,8 @@ const colors = [
   { name: 'Light Green', value: '#A5D6A7' },
   { name: 'Light Blue', value: '#90CAF9' },
   { name: 'Light Purple', value: '#CE93D8' },
+  { name: 'Light Lavender', value: '#E1BEE7' },
+  { name: 'Light Pink 2', value: '#F48FB1' },
 ];
 
 interface LoopItem {
@@ -31,13 +33,13 @@ interface LoopItem {
   isLoop: boolean; // Can this item be a sub-loop?
 }
 
-export default function CreateLoopPage() {
+function CreateLoopPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [selectedColor, setSelectedColor] = useState<string>(colors[0].value);
+  const [selectedColor, setSelectedColor] = useState<string>(colors[3].value); // Default to Blue
   const [loopName, setLoopName] = useState('');
   const [loopType, setLoopType] = useState<'daily' | 'work' | 'personal'>('daily');
-  const [step, setStep] = useState<'color' | 'name' | 'items'>('color');
+  const [step, setStep] = useState<'setup' | 'items'>('setup');
   const [items, setItems] = useState<LoopItem[]>([]);
   const [newItemName, setNewItemName] = useState('');
   const [isFavorite, setIsFavorite] = useState(false);
@@ -51,24 +53,26 @@ export default function CreateLoopPage() {
       setLoopName(name);
       setStep('items');
     }
-    if (color) {
+    if (color && colors.some(c => c.value === color)) {
       setSelectedColor(color);
     }
   }, [searchParams]);
 
-  const handleNext = () => {
-    if (step === 'color') {
-      setStep('name');
-    } else if (step === 'name' && loopName.trim()) {
-      setStep('items');
+  const handleSave = () => {
+    if (!loopName.trim()) {
+      showToast('Please enter a loop name', 'error');
+      return;
     }
+    
+    // Navigate to items step
+    setStep('items');
   };
 
   const handleCancel = () => {
     router.push('/');
   };
 
-  const handleSave = () => {
+  const handleFinish = () => {
     if (!loopName.trim()) {
       showToast('Please enter a loop name', 'error');
       return;
@@ -89,11 +93,13 @@ export default function CreateLoopPage() {
         longestStreak: 0,
         completionHistory: [],
         isFavorite: isFavorite,
+        color: selectedColor,
         items: items.map((item, index) => ({
           id: item.id,
           title: item.title,
           completed: item.completed,
           order: index,
+          isRecurring: true, // Default to loop item
         })),
       };
 
@@ -132,48 +138,66 @@ export default function CreateLoopPage() {
     );
   };
 
-  const LoopIcon = () => (
+  const LoopIcon = ({ color }: { color: string }) => (
     <svg
-      width="48"
-      height="48"
-      viewBox="0 0 48 48"
+      width="96"
+      height="96"
+      viewBox="0 0 444.25 444.25"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
     >
       <path
-        d="M 24 8 Q 8 8, 8 24 Q 8 40, 24 40 Q 40 40, 40 24 Q 40 8, 24 8"
-        stroke="white"
-        strokeWidth="3"
-        fill="none"
-        strokeLinecap="round"
+        d="M239.72,111.74l30.57-25.47c-12.11-9.89-24.22-19.79-36.33-29.68,11.16,1,78.57,8.2,124.27,67.79,4.09,5.34,43.27,54.72,35,126.27-2.14,18.49-6.5,33.53-10.41,43.86l17.72,11.08-72.81,27.39c-4.65-25.62-8.64-51.32-12.63-76.79,7.09,3.77,12.18,6.65,19.72,10.63,8.64-34.78,3.99-81.08-20.16-109.21-31.65-36.88-62.25-42.53-74.95-45.85Z"
+        fill={color}
+      />
+      <path
+        d="M311.88,310.36c2.15,13.09,4.29,26.18,6.44,39.27,14.67-5.41,29.34-10.83,44.01-16.24-6.53,9.11-46.94,63.55-121.47,72.69-6.68.82-69.1,9.52-126.56-33.91-14.85-11.22-25.6-22.62-32.51-31.23-6.18,3.22-12.36,6.43-18.54,9.65,4.45-25.55,8.89-51.09,13.34-76.64,24.44,8.99,48.61,18.6,72.58,28.09-6.84,4.2-11.91,7.13-19.17,11.59,25.59,25.09,67.84,44.57,104.34,38.04,47.84-8.56,68.23-32.06,77.54-41.32Z"
+        fill={color}
+      />
+      <path
+        d="M104.99,274.14c-12.41-4.7-24.81-9.39-37.22-14.09-2.66,15.41-5.32,30.82-7.98,46.23-4.62-10.22-31.5-72.45-2.1-141.54,2.63-6.19,26.36-64.59,92.73-92.57,17.15-7.23,32.39-10.83,43.31-12.51.31-6.96.62-13.92.93-20.88,19.89,16.64,39.77,33.28,59.66,49.92-20.02,16.65-40.44,32.76-60.66,48.76-.21-8.02-.21-13.88-.44-22.4-34.53,9.58-72.56,36.4-85.18,71.26-16.55,45.7-6.42,75.12-3.07,87.81Z"
+        fill={color}
       />
     </svg>
   );
 
-  if (step === 'color') {
+  if (step === 'setup') {
     return (
       <div className="min-h-screen bg-white">
         <Header userName="Robert" />
-        <main className="max-w-md mx-auto px-4 py-8">
-          {/* Title */}
+        <main className="max-w-[450px] mx-auto px-4 py-8 relative">
+          {/* Navigation */}
+          <div className="flex justify-between items-center mb-8">
+            <button
+              onClick={handleCancel}
+              className="text-blue-600 font-medium"
+            >
+              Cancel
+            </button>
+            <h1 className="text-xl font-bold text-gray-900">New DoLoop</h1>
+            <button
+              onClick={handleSave}
+              disabled={!loopName.trim()}
+              className={`font-medium ${
+                loopName.trim()
+                  ? 'text-blue-600'
+                  : 'text-gray-400 cursor-not-allowed'
+              }`}
+            >
+              Save
+            </button>
+          </div>
+
+          {/* Loop Icon */}
           <div className="text-center mb-8">
-            <div className="mb-4">
-              {/* Bee illustration placeholder */}
-              <div className="w-24 h-24 mx-auto bg-yellow-300 rounded-full flex items-center justify-center">
-                <span className="text-4xl">🐝</span>
-              </div>
+            <div className="flex justify-center mb-6">
+              <LoopIcon color={selectedColor} />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">
-              Create a new DoLoop
-            </h1>
-            <p className="text-gray-600 text-sm">
-              Choose a color for your loop
-            </p>
           </div>
 
           {/* Color Palette */}
           <div className="mb-8">
-            <div className="grid grid-cols-7 gap-3 mb-4">
+            <div className="grid grid-cols-7 gap-3 mb-3">
               {colors.slice(0, 7).map((color) => (
                 <button
                   key={color.value}
@@ -205,163 +229,42 @@ export default function CreateLoopPage() {
             </div>
           </div>
 
-          {/* Navigation */}
-          <div className="flex justify-between items-center">
-            <button
-              onClick={handleCancel}
-              className="text-blue-600 font-medium"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleNext}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium"
-            >
-              Next
-            </button>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
-  if (step === 'name') {
-    return (
-      <div className="min-h-screen bg-white">
-        <Header userName="Robert" />
-        <main className="max-w-md mx-auto px-4 py-8">
-          {/* Navigation */}
-          <div className="flex justify-between items-center mb-8">
-            <button
-              onClick={() => setStep('color')}
-              className="text-blue-600 font-medium"
-            >
-              Cancel
-            </button>
-            <h1 className="text-xl font-bold text-gray-900">New DoLoop</h1>
-            <button
-              onClick={handleNext}
-              disabled={!loopName.trim()}
-              className={`px-6 py-2 rounded-lg font-medium ${
-                loopName.trim()
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-              }`}
-            >
-              Create Loop
-            </button>
-          </div>
-
-          {/* Loop Icon */}
-          <div className="text-center mb-8">
-            <div
-              className="w-24 h-24 mx-auto rounded-full flex items-center justify-center mb-4"
-              style={{ backgroundColor: selectedColor }}
-            >
-              <LoopIcon />
-            </div>
-          </div>
-
           {/* Name Input */}
           <div className="mb-6">
-            <label className="block text-gray-600 text-sm mb-2">
-              Give your loop a name.
-            </label>
             <input
               type="text"
               value={loopName}
               onChange={(e) => setLoopName(e.target.value)}
-              placeholder="e.g., Camping"
-              className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg text-gray-900"
+              placeholder="Name your loop"
+              className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg text-gray-900 bg-gray-50 text-center"
               autoFocus
             />
           </div>
 
-          {/* Loop Type Selector */}
-          <div className="mb-6">
-            <label className="block text-gray-600 text-sm mb-2">
-              What type of loop is this?
-            </label>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setLoopType('daily')}
-                className={`flex-1 py-3 px-4 rounded-xl font-medium transition-all ${
-                  loopType === 'daily'
-                    ? 'bg-yellow-500 text-white shadow-md'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-                aria-label="Select Daily loop type"
-                aria-pressed={loopType === 'daily'}
-              >
-                Daily
-              </button>
-              <button
-                type="button"
-                onClick={() => setLoopType('work')}
-                className={`flex-1 py-3 px-4 rounded-xl font-medium transition-all ${
-                  loopType === 'work'
-                    ? 'bg-cyan-500 text-white shadow-md'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-                aria-label="Select Work loop type"
-                aria-pressed={loopType === 'work'}
-              >
-                Work
-              </button>
-              <button
-                type="button"
-                onClick={() => setLoopType('personal')}
-                className={`flex-1 py-3 px-4 rounded-xl font-medium transition-all ${
-                  loopType === 'personal'
-                    ? 'bg-red-500 text-white shadow-md'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-                aria-label="Select Personal loop type"
-                aria-pressed={loopType === 'personal'}
-              >
-                Personal
-              </button>
-            </div>
-          </div>
-
-          {/* Favorite Toggle */}
-          <div className="mb-8">
-            <button
-              onClick={() => setIsFavorite(!isFavorite)}
-              className="flex items-center gap-3 w-full p-4 rounded-xl border-2 transition-all hover:bg-gray-50"
-              style={{
-                borderColor: isFavorite ? '#FFB800' : '#E5E7EB',
-                backgroundColor: isFavorite ? '#FFFBEB' : 'transparent',
-              }}
+          {/* Favorites Toggle - Bottom Right */}
+          <button
+            onClick={() => setIsFavorite(!isFavorite)}
+            className="absolute bottom-4 right-4 flex items-center gap-2 px-3 py-2 rounded-lg transition-all hover:bg-gray-100 border border-gray-200 bg-white shadow-sm"
+            aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+          >
+            <svg
+              className={`w-5 h-5 transition-colors ${isFavorite ? 'text-yellow-500' : 'text-gray-400'}`}
+              fill={isFavorite ? 'currentColor' : 'none'}
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
             >
-              <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                isFavorite ? 'bg-yellow-500 border-yellow-500' : 'border-gray-300'
-              }`}>
-                {isFavorite && (
-                  <svg
-                    className="w-4 h-4 text-white"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={3}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                )}
-              </div>
-              <span className={`font-medium ${isFavorite ? 'text-gray-900' : 'text-gray-700'}`}>
-                Mark as favorite
-              </span>
-              {isFavorite && (
-                <span className="ml-auto text-yellow-600">⭐</span>
-              )}
-            </button>
-          </div>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
+              />
+            </svg>
+            <span className={`text-xs font-medium ${isFavorite ? 'text-gray-900' : 'text-gray-500'}`}>
+              Favorites
+            </span>
+          </button>
         </main>
       </div>
     );
@@ -371,7 +274,7 @@ export default function CreateLoopPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
       <Header userName="Robert" />
-      <main className="max-w-md mx-auto px-4 py-8">
+      <main className="max-w-[450px] mx-auto px-4 py-8">
         {/* Yellow Header Bar */}
         <div
           className="h-2 mb-6 rounded"
@@ -380,11 +283,8 @@ export default function CreateLoopPage() {
 
         {/* Loop Header */}
         <div className="bg-gray-100 rounded-xl p-6 mb-6 text-center">
-          <div
-            className="w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-4"
-            style={{ backgroundColor: selectedColor }}
-          >
-            <LoopIcon />
+          <div className="flex justify-center mb-4">
+            <LoopIcon color={selectedColor} />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">{loopName}</h1>
         </div>
@@ -530,7 +430,7 @@ export default function CreateLoopPage() {
         {/* Navigation */}
         <div className="flex justify-between items-center mt-8">
           <button
-            onClick={() => setStep('name')}
+            onClick={() => setStep('setup')}
             className="text-blue-600 font-medium"
           >
             Back
@@ -539,7 +439,7 @@ export default function CreateLoopPage() {
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                handleSave();
+                handleFinish();
               }}
               className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700"
               type="button"
@@ -558,5 +458,17 @@ export default function CreateLoopPage() {
         onClose={hideToast}
       />
     </div>
+  );
+}
+
+export default function CreateLoopPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-gray-600">Loading...</div>
+      </div>
+    }>
+      <CreateLoopPageContent />
+    </Suspense>
   );
 }
