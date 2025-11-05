@@ -23,8 +23,8 @@ export default function CreateLoopWelcomePage() {
         <Image
           src="/doloop-bee.svg"
           alt="DoLoop Bee"
-          width={240}
-          height={158}
+          width={200}
+          height={190}
         />
       </motion.div>
 
