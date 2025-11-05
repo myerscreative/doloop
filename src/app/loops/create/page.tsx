@@ -20,13 +20,13 @@ export default function CreateLoopWelcomePage() {
         transition={{ duration: 0.5, type: 'spring' }}
         className="mb-8 flex justify-center items-center w-full"
       >
-        <div className="flex justify-center items-center">
+        <div className="flex justify-center items-center" style={{ transform: 'translateX(-15px)' }}>
           <Image
             src="/doloop-bee.svg"
             alt="DoLoop Bee"
             width={200}
             height={200}
-            style={{ display: 'block', margin: '0 auto' }}
+            style={{ display: 'block' }}
           />
         </div>
       </motion.div>
