@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 export default function CreateLoopWelcomePage() {
   const router = useRouter();
@@ -17,13 +18,13 @@ export default function CreateLoopWelcomePage() {
         initial={{ scale: 0, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 0.5, type: 'spring' }}
-        className="mb-8"
+        className="mb-8 flex justify-center"
       >
-        <img
+        <Image
           src="/doloop-bee.svg"
           alt="DoLoop Bee"
-          width="200"
-          height="200"
+          width={200}
+          height={200}
         />
       </motion.div>
 
@@ -55,29 +56,12 @@ export default function CreateLoopWelcomePage() {
         onClick={handleContinue}
         className="w-16 h-16 rounded-full bg-yellow-500 flex items-center justify-center shadow-lg hover:shadow-xl transition-shadow"
       >
-        <svg
-          width="32"
-          height="32"
-          viewBox="0 0 32 32"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          {/* Circular Arrow */}
-          <path
-            d="M 16 6 Q 6 6, 6 16 Q 6 26, 16 26 Q 26 26, 26 16 Q 26 6, 16 6"
-            stroke="black"
-            strokeWidth="2.5"
-            fill="none"
-            strokeLinecap="round"
-          />
-          {/* Plus Sign */}
-          <path
-            d="M 16 10 L 16 22 M 10 16 L 22 16"
-            stroke="black"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-          />
-        </svg>
+        <Image
+          src="/arrow-circle-plus.svg"
+          alt="Create Loop"
+          width={40}
+          height={40}
+        />
       </motion.button>
     </div>
   );
