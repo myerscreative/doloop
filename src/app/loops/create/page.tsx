@@ -61,7 +61,6 @@ export default function CreateLoopWelcomePage() {
           alt="Create Loop"
           width={80}
           height={80}
-          className="brightness-0"
         />
       </motion.button>
     </div>
