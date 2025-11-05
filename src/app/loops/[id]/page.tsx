@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import Image from 'next/image';
 import Header from '@/components/layout/Header';
 import { Loop, LoopItem, LOOP_LIBRARY_COLORS } from '@/types/loop';
-import { getLoopById, updateLoop } from '@/lib/loopStorage';
+import { getLoopById, updateLoop, getAllLoops } from '@/lib/loopStorage';
 import { reloop, resetLoop } from '@/lib/loopUtils';
 import { motion, AnimatePresence } from 'framer-motion';
 import LoopItemOptions from '@/components/loops/LoopItemOptions';
@@ -50,6 +51,30 @@ function getLoopColor(loop: Loop): string {
   }
 }
 
+// Loop Icon Component
+const LoopIcon = ({ color }: { color: string }) => (
+  <svg
+    width="64"
+    height="64"
+    viewBox="0 0 444.25 444.25"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M239.72,111.74l30.57-25.47c-12.11-9.89-24.22-19.79-36.33-29.68,11.16,1,78.57,8.2,124.27,67.79,4.09,5.34,43.27,54.72,35,126.27-2.14,18.49-6.5,33.53-10.41,43.86l17.72,11.08-72.81,27.39c-4.65-25.62-8.64-51.32-12.63-76.79,7.09,3.77,12.18,6.65,19.72,10.63,8.64-34.78,3.99-81.08-20.16-109.21-31.65-36.88-62.25-42.53-74.95-45.85Z"
+      fill={color}
+    />
+    <path
+      d="M311.88,310.36c2.15,13.09,4.29,26.18,6.44,39.27,14.67-5.41,29.34-10.83,44.01-16.24-6.53,9.11-46.94,63.55-121.47,72.69-6.68.82-69.1,9.52-126.56-33.91-14.85-11.22-25.6-22.62-32.51-31.23-6.18,3.22-12.36,6.43-18.54,9.65,4.45-25.55,8.89-51.09,13.34-76.64,24.44,8.99,48.61,18.6,72.58,28.09-6.84,4.2-11.91,7.13-19.17,11.59,25.59,25.09,67.84,44.57,104.34,38.04,47.84-8.56,68.23-32.06,77.54-41.32Z"
+      fill={color}
+    />
+    <path
+      d="M104.99,274.14c-12.41-4.7-24.81-9.39-37.22-14.09-2.66,15.41-5.32,30.82-7.98,46.23-4.62-10.22-31.5-72.45-2.1-141.54,2.63-6.19,26.36-64.59,92.73-92.57,17.15-7.23,32.39-10.83,43.31-12.51.31-6.96.62-13.92.93-20.88,19.89,16.64,39.77,33.28,59.66,49.92-20.02,16.65-40.44,32.76-60.66,48.76-.21-8.02-.21-13.88-.44-22.4-34.53,9.58-72.56,36.4-85.18,71.26-16.55,45.7-6.42,75.12-3.07,87.81Z"
+      fill={color}
+    />
+  </svg>
+);
+
 export default function LoopDetailPage() {
   const router = useRouter();
   const params = useParams();
@@ -60,6 +85,7 @@ export default function LoopDetailPage() {
   const [reloopDialog, setReloopDialog] = useState(false);
   const [resetDialog, setResetDialog] = useState(false);
   const [showColorSelector, setShowColorSelector] = useState(false);
+  const [allLoops, setAllLoops] = useState<Loop[]>([]);
   const { toast, showToast, hideToast } = useToast();
 
   const handleToggleItem = (itemId: string) => {
@@ -204,15 +230,19 @@ export default function LoopDetailPage() {
     showToast('Loop color updated!', 'success');
   };
 
+  // Load loop data on mount - this is a valid pattern for localStorage access
   useEffect(() => {
     if (!loopId) return;
 
-    // Get loop from storage using new getLoopById function
+    // Get loop from storage
     const foundLoop = getLoopById(loopId);
+    const loops = getAllLoops();
 
+    // Batch state updates
     if (foundLoop) {
       setLoop(foundLoop);
     }
+    setAllLoops(loops);
     setLoading(false);
   }, [loopId]);
 
@@ -220,9 +250,12 @@ export default function LoopDetailPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
         <Header userName="Robert" />
-        <main className="max-w-[450px] mx-auto px-4 py-8">
-          <div className="text-center py-16">Loading...</div>
-        </main>
+        <div className="flex">
+          <aside className="w-80 bg-white border-r border-gray-200 min-h-screen"></aside>
+          <main className="flex-1 max-w-[940px] mx-auto px-8 py-8">
+            <div className="text-center py-16">Loading...</div>
+          </main>
+        </div>
       </div>
     );
   }
@@ -231,71 +264,206 @@ export default function LoopDetailPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
         <Header userName="Robert" />
-        <main className="max-w-[450px] mx-auto px-4 py-8">
-          <div className="text-center py-16">
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">Loop not found</h2>
-            <button
-              onClick={() => router.push('/')}
-              className="text-blue-600 hover:underline"
-            >
-              Go back home
-            </button>
-          </div>
-        </main>
+        <div className="flex">
+          <aside className="w-80 bg-white border-r border-gray-200 min-h-screen"></aside>
+          <main className="flex-1 max-w-[940px] mx-auto px-8 py-8">
+            <div className="text-center py-16">
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">Loop not found</h2>
+              <button
+                onClick={() => router.push('/')}
+                className="text-blue-600 hover:underline"
+              >
+                Go back home
+              </button>
+            </div>
+          </main>
+        </div>
       </div>
     );
   }
 
-  const LoopIcon = ({ color }: { color: string }) => (
-    <svg
-      width="64"
-      height="64"
-      viewBox="0 0 444.25 444.25"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        d="M239.72,111.74l30.57-25.47c-12.11-9.89-24.22-19.79-36.33-29.68,11.16,1,78.57,8.2,124.27,67.79,4.09,5.34,43.27,54.72,35,126.27-2.14,18.49-6.5,33.53-10.41,43.86l17.72,11.08-72.81,27.39c-4.65-25.62-8.64-51.32-12.63-76.79,7.09,3.77,12.18,6.65,19.72,10.63,8.64-34.78,3.99-81.08-20.16-109.21-31.65-36.88-62.25-42.53-74.95-45.85Z"
-        fill={color}
-      />
-      <path
-        d="M311.88,310.36c2.15,13.09,4.29,26.18,6.44,39.27,14.67-5.41,29.34-10.83,44.01-16.24-6.53,9.11-46.94,63.55-121.47,72.69-6.68.82-69.1,9.52-126.56-33.91-14.85-11.22-25.6-22.62-32.51-31.23-6.18,3.22-12.36,6.43-18.54,9.65,4.45-25.55,8.89-51.09,13.34-76.64,24.44,8.99,48.61,18.6,72.58,28.09-6.84,4.2-11.91,7.13-19.17,11.59,25.59,25.09,67.84,44.57,104.34,38.04,47.84-8.56,68.23-32.06,77.54-41.32Z"
-        fill={color}
-      />
-      <path
-        d="M104.99,274.14c-12.41-4.7-24.81-9.39-37.22-14.09-2.66,15.41-5.32,30.82-7.98,46.23-4.62-10.22-31.5-72.45-2.1-141.54,2.63-6.19,26.36-64.59,92.73-92.57,17.15-7.23,32.39-10.83,43.31-12.51.31-6.96.62-13.92.93-20.88,19.89,16.64,39.77,33.28,59.66,49.92-20.02,16.65-40.44,32.76-60.66,48.76-.21-8.02-.21-13.88-.44-22.4-34.53,9.58-72.56,36.4-85.18,71.26-16.55,45.7-6.42,75.12-3.07,87.81Z"
-        fill={color}
-      />
-    </svg>
-  );
+  const favoriteLoops = allLoops.filter(l => l.isFavorite);
+  const personalLoops = allLoops.filter(l => l.type === 'personal');
+  const workLoops = allLoops.filter(l => l.type === 'work');
+  const dailyLoops = allLoops.filter(l => l.type === 'daily');
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
       <Header userName="Robert" />
-      <main className="max-w-[450px] mx-auto px-4 py-8">
-        {/* Back Button */}
-        <button
-          onClick={() => router.back()}
-          className="mb-6 text-blue-600 hover:text-blue-700 font-medium flex items-center gap-2"
-          aria-label="Go back"
-        >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 20 20"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M 12 4 L 6 10 L 12 16"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          Back
-        </button>
+      <div className="flex">
+        {/* Left Sidebar */}
+        <aside className="w-80 bg-white border-r border-gray-200 min-h-screen p-6">
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-gray-900">My Lists</h2>
+              <button
+                onClick={() => setShowColorSelector(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <path d="M 8 4 L 8 8 L 4 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M 16 4 L 16 8 L 20 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+            </div>
+
+            {/* Favorites */}
+            <div className="space-y-1">
+              <button
+                onClick={() => router.push('/loops')}
+                className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-gray-600">
+                    <path d="M 3 9 L 12 3 L 21 9 L 21 20 L 15 20 L 15 14 L 9 14 L 9 20 L 3 20 Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
+                  </svg>
+                  <span className="text-gray-700 font-medium">All Lists</span>
+                </div>
+                <span className="text-gray-500 text-sm">{allLoops.length}</span>
+              </button>
+
+              <button
+                className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" className="text-yellow-400">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                  </svg>
+                  <span className="text-gray-700 font-medium">Favorites</span>
+                </div>
+                <span className="text-gray-500 text-sm">{favoriteLoops.length}</span>
+              </button>
+
+              <button
+                className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-5 h-5 rounded border-2 border-purple-500"></div>
+                  <span className="text-gray-700 font-medium">Personal</span>
+                </div>
+                <span className="text-gray-500 text-sm">{personalLoops.length}</span>
+              </button>
+
+              <button
+                className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-5 h-5 rounded border-2 border-blue-500"></div>
+                  <span className="text-gray-700 font-medium">Work</span>
+                </div>
+                <span className="text-gray-500 text-sm">{workLoops.length}</span>
+              </button>
+
+              <button
+                className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-5 h-5 rounded border-2 border-orange-500"></div>
+                  <span className="text-gray-700 font-medium">Daily</span>
+                </div>
+                <span className="text-gray-500 text-sm">{dailyLoops.length}</span>
+              </button>
+            </div>
+
+            {/* Create New List Button */}
+            <button
+              onClick={() => router.push('/loops/create')}
+              className="w-full mt-4 flex items-center justify-between px-3 py-2 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-gray-600">
+                  <path d="M 12 6 L 12 18 M 6 12 L 18 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+                <span className="text-gray-600 text-sm font-medium">Create new list</span>
+              </div>
+              <span className="text-gray-400 text-xs">⌘L</span>
+            </button>
+          </div>
+
+          {/* Library Section */}
+          <div className="border-t border-gray-200 pt-6">
+            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Loop Library</h3>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => router.push('/')}
+                className="py-3 px-3 rounded-lg font-medium transition-all text-center text-sm text-white hover:opacity-90"
+                style={{ backgroundColor: LOOP_LIBRARY_COLORS[0] }}
+              >
+                Favorites
+              </button>
+              <button
+                onClick={() => router.push('/')}
+                className="py-3 px-3 rounded-lg font-medium transition-all text-center text-sm text-white hover:opacity-90"
+                style={{ backgroundColor: LOOP_LIBRARY_COLORS[1] }}
+              >
+                Personal
+              </button>
+              <button
+                onClick={() => router.push('/')}
+                className="py-3 px-3 rounded-lg font-medium transition-all text-center text-sm text-white hover:opacity-90"
+                style={{ backgroundColor: LOOP_LIBRARY_COLORS[2] }}
+              >
+                Work
+              </button>
+              <button
+                onClick={() => router.push('/')}
+                className="py-3 px-3 rounded-lg font-medium transition-all text-center text-sm text-white hover:opacity-90"
+                style={{ backgroundColor: LOOP_LIBRARY_COLORS[3] }}
+              >
+                Shared
+              </button>
+            </div>
+            <button
+              onClick={() => router.push('/library')}
+              className="w-full mt-3 py-3 px-3 rounded-lg border-2 border-dashed border-gray-300 hover:border-gray-400 hover:bg-gray-50 transition-all flex items-center justify-center gap-2"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="text-gray-400"
+              >
+                <path
+                  d="M 12 5 L 12 19 M 5 12 L 19 12"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
+              <span className="text-gray-600 text-sm font-medium">Manage Folders</span>
+            </button>
+          </div>
+        </aside>
+
+        {/* Main Content */}
+        <main className="flex-1 max-w-[940px] mx-auto px-8 py-8">
+          {/* Header with Back Button */}
+          <div className="mb-6 flex items-center gap-4">
+            <button
+              onClick={() => router.back()}
+              className="text-blue-600 hover:text-blue-700 font-medium flex items-center gap-2"
+              aria-label="Go back"
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 20 20"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M 12 4 L 6 10 L 12 16"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              Back
+            </button>
+          </div>
 
         {/* Single Card - Loop and Tasks */}
         <motion.div
@@ -304,9 +472,16 @@ export default function LoopDetailPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
-          {/* Reset Loop - Top Right */}
+          {/* Loop Actions - Top Right */}
           {loop.items && loop.items.length > 0 && (
-            <div className="flex justify-end mb-4">
+            <div className="flex justify-end gap-4 mb-4">
+              <button
+                onClick={handleReloop}
+                className="text-sm font-medium text-blue-500 hover:text-blue-600 hover:underline transition-colors"
+                aria-label="Reloop"
+              >
+                Reloop
+              </button>
               <button
                 onClick={handleResetLoop}
                 className="text-sm font-medium text-gray-400 hover:text-gray-600 hover:underline transition-colors"
@@ -458,9 +633,7 @@ export default function LoopDetailPage() {
                   }}
                   className="flex items-center gap-3 py-3 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors w-full"
                 >
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-gray-600">
-                    <path d="M 12 6 L 12 18 M 6 12 L 18 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                  </svg>
+                  <Image src="/arrow-circle-plus.svg" alt="Add" width={24} height={24} />
                   <span>Add a Step/Item</span>
                 </button>
               </div>
@@ -471,7 +644,8 @@ export default function LoopDetailPage() {
             </p>
           )}
         </motion.div>
-      </main>
+        </main>
+      </div>
 
       {/* Item Options Modal */}
       <AnimatePresence>
