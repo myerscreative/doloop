@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
-    "platforms": ["ios", "android"],
+    "platforms": ["ios", "android", "web"],
     "icon": "./assets/icon.png",
     "splash": {
       "image": "./assets/splash.png",
@@ -29,8 +29,8 @@
       "expo-notifications"
     ],
     "extra": {
-      "supabaseUrl": "YOUR_SUPABASE_URL",
-      "supabaseAnonKey": "YOUR_SUPABASE_ANON_KEY"
+      "supabaseUrl": "https://faaidvdogakvrdwloxjf.supabase.co",
+      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZhYWlkdmRvZ2FrdnJkd2xveGpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkyNDgwMjAsImV4cCI6MjA3NDgyNDAyMH0.TK1IAFq5QV7i3CLHWkDI9rARk9OMKabRDGfKYlgfc8Y"
     }
   }
 }

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase, getCurrentUser, isSupabaseConfigured } from '../lib/supabase';
+import { supabase, getCurrentUser } from '../lib/supabase';
 import { User, Session } from '@supabase/supabase-js';
 
 interface AuthContextType {
@@ -21,19 +21,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     // Get initial session
     const getInitialSession = async () => {
-      if (!isSupabaseConfigured) {
-        console.log('📱 Running in demo mode - no authentication required');
-        setLoading(false);
-        return;
-      }
-
+      console.log('[Auth] Checking initial session...');
       try {
         const { data: { session } } = await supabase.auth.getSession();
+        console.log('[Auth] Initial session:', session ? 'Found' : 'None');
         setSession(session);
         setUser(session?.user ?? null);
       } catch (error) {
-        console.warn('Error getting session:', error);
+        console.warn('[Auth] Error getting session:', error);
       } finally {
+        console.log('[Auth] Loading complete');
         setLoading(false);
       }
     };
@@ -41,12 +38,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     getInitialSession();
 
     // Listen for auth changes
-    if (!isSupabaseConfigured) {
-      return; // No subscription needed in demo mode
-    }
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('[Auth] State change:', event, session ? 'User found' : 'No user');
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
@@ -57,9 +51,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    if (!isSupabaseConfigured) {
-      return { error: new Error('Auth not configured - running in demo mode') };
-    }
     try {
       const { error } = await supabase.auth.signInWithPassword({
         email,
@@ -72,9 +63,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signUp = async (email: string, password: string) => {
-    if (!isSupabaseConfigured) {
-      return { error: new Error('Auth not configured - running in demo mode') };
-    }
     try {
       const { error } = await supabase.auth.signUp({
         email,
@@ -87,9 +75,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
-    if (!isSupabaseConfigured) {
-      return;
-    }
     try {
       await supabase.auth.signOut();
     } catch (error) {

@@ -1,38 +1,31 @@
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
-// Get Supabase config from app.json extra or fallback to env vars
+// Get Supabase config - try multiple sources
 const supabaseUrl = 
-  Constants.expoConfig?.extra?.supabaseUrl || 
-  process.env.EXPO_PUBLIC_SUPABASE_URL || 
-  '';
+  process.env.EXPO_PUBLIC_SUPABASE_URL ||
+  Constants.expoConfig?.extra?.supabaseUrl ||
+  Constants.manifest?.extra?.supabaseUrl ||
+  Constants.manifest2?.extra?.expoClient?.extra?.supabaseUrl;
 
 const supabaseAnonKey = 
-  Constants.expoConfig?.extra?.supabaseAnonKey || 
-  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 
-  '';
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
+  Constants.expoConfig?.extra?.supabaseAnonKey ||
+  Constants.manifest?.extra?.supabaseAnonKey ||
+  Constants.manifest2?.extra?.expoClient?.extra?.supabaseAnonKey;
 
-// Check if credentials are placeholders or missing
-const isValidConfig = 
-  supabaseUrl && 
-  supabaseAnonKey && 
-  supabaseUrl !== 'YOUR_SUPABASE_URL' &&
-  supabaseAnonKey !== 'YOUR_SUPABASE_ANON_KEY' &&
-  (supabaseUrl.startsWith('http://') || supabaseUrl.startsWith('https://'));
-
-if (!isValidConfig) {
-  console.warn('⚠️  Missing or invalid Supabase configuration. Running in demo mode.');
-  console.warn('   To enable backend features, set valid supabaseUrl and supabaseAnonKey in app.json');
+// Validate configuration
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error(
+    `Missing Supabase configuration. Platform: ${Platform.OS}. Please set credentials in app.json "extra" section.`
+  );
 }
 
-// Create a dummy/demo client if credentials are missing
-const dummyUrl = 'https://demo.supabase.co';
-const dummyKey = 'demo-key-for-local-development';
-
 export const supabase = createClient(
-  isValidConfig ? supabaseUrl : dummyUrl, 
-  isValidConfig ? supabaseAnonKey : dummyKey,
+  supabaseUrl,
+  supabaseAnonKey,
   {
     auth: {
       storage: AsyncStorage,
@@ -40,7 +33,6 @@ export const supabase = createClient(
       persistSession: true,
       detectSessionInUrl: false,
     },
-    // Enable offline support
     db: {
       schema: 'public',
     },
@@ -49,7 +41,6 @@ export const supabase = createClient(
         'x-my-custom-header': 'doloop-mobile',
       },
     },
-    // Enable real-time subscriptions
     realtime: {
       params: {
         eventsPerSecond: 10,
@@ -58,14 +49,11 @@ export const supabase = createClient(
   }
 );
 
-// Export flag to check if we're in demo mode
-export const isSupabaseConfigured = isValidConfig;
+// Supabase is always configured now
+export const isSupabaseConfigured = true;
 
-// For auth
+// Get current user
 export const getCurrentUser = async () => {
-  if (!isSupabaseConfigured) {
-    return null; // Demo mode - no user
-  }
   try {
     const { data: { user } } = await supabase.auth.getUser();
     return user;

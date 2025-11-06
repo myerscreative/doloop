@@ -13,14 +13,14 @@ import { RootStackParamList } from '../../App';
 
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import { Folder, LoopType, FOLDER_ICONS, FOLDER_COLORS } from '../types/loop';
 
 type HomeScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
 export const HomeScreen: React.FC = () => {
   const { colors } = useTheme();
-  const { user, signOut } = useAuth();
+  const { user, signOut, loading } = useAuth();
   const navigation = useNavigation<HomeScreenNavigationProp>();
   const [folders, setFolders] = useState<Folder[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -31,6 +31,13 @@ export const HomeScreen: React.FC = () => {
     loadData();
     updateDate();
   }, []);
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!loading && !user) {
+      navigation.replace('Login');
+    }
+  }, [loading, user, navigation]);
 
   const updateDate = () => {
     const now = new Date();
@@ -43,11 +50,6 @@ export const HomeScreen: React.FC = () => {
   };
 
   const loadData = async () => {
-    if (!isSupabaseConfigured) {
-      console.log('📱 Demo mode - no loops to load');
-      return;
-    }
-    
     if (!user) return;
 
     try {
@@ -117,8 +119,8 @@ export const HomeScreen: React.FC = () => {
     navigation.replace('Login');
   };
 
-  // In demo mode, show home screen even without user
-  if (!user && isSupabaseConfigured) {
+  // Show loading screen while checking auth
+  if (loading || !user) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }}>
         <Text style={{ color: colors.text }}>Loading...</Text>
@@ -244,9 +246,7 @@ export const HomeScreen: React.FC = () => {
                 color: colors.textSecondary,
                 textAlign: 'center',
               }}>
-                {!isSupabaseConfigured 
-                  ? '📱 Demo Mode - Configure Supabase in app.json to enable backend features'
-                  : 'No loops yet. Create your first loop to get started!'}
+                No loops yet. Create your first loop to get started!
               </Text>
             </View>
           )}
