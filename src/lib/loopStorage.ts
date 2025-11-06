@@ -195,27 +195,6 @@ export function reorderFolders(reorderedFolders: LibraryFolder[]): void {
 // Date Helper Functions for Auto-Reloop
 
 /**
- * Get today's date as ISO date string (YYYY-MM-DD)
- */
-export function getToday(): string {
-  return new Date().toISOString().split('T')[0];
-}
-
-/**
- * Get the start of the current week (Sunday) as ISO date string
- * This is used for weekly reset logic
- */
-export function getWeekStart(): string {
-  const now = new Date();
-  const day = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
-  const sunday = new Date(now);
-  sunday.setDate(now.getDate() - day);
-  return sunday.toISOString().split('T')[0];
-}
-
-// Auto-Reloop Helper Functions
-
-/**
  * Get today's date as an ISO date string (YYYY-MM-DD)
  */
 export function getToday(): string {
@@ -225,12 +204,12 @@ export function getToday(): string {
 
 /**
  * Get the start of the current week (Monday) as an ISO date string (YYYY-MM-DD)
- * Week starts on Monday
+ * Week starts on Monday as specified in Phase 2 requirements
  */
 export function getWeekStart(): string {
   const today = new Date();
   const day = today.getDay();
-  // Adjust for Sunday (0) to be 7
+  // Adjust for Sunday (0) to be 7, then calculate days until Monday
   const diff = day === 0 ? -6 : 1 - day;
   const monday = new Date(today);
   monday.setDate(today.getDate() + diff);

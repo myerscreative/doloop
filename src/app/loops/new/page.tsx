@@ -79,6 +79,9 @@ function CreateLoopPageContent() {
     }
     
     try {
+      // Get today's date as ISO string
+      const today = new Date().toISOString().split('T')[0];
+      
       // Create the new loop
       const newLoop: Loop = {
         id: Date.now().toString(),
@@ -93,6 +96,7 @@ function CreateLoopPageContent() {
         longestStreak: 0,
         completionHistory: [],
         reset_rule: loopType === 'daily' ? 'daily' : 'manual',
+        last_reset: today,
         isFavorite: isFavorite,
         color: selectedColor,
         items: items.map((item, index) => ({
