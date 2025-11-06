@@ -495,6 +495,44 @@ export const LoopDetailScreen: React.FC = () => {
                 </Text>
               </TouchableOpacity>
             ))}
+
+            {/* Add Task Button */}
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: 'transparent',
+                padding: 16,
+                borderRadius: 8,
+                marginBottom: 8,
+                borderWidth: 2,
+                borderColor: colors.primary,
+                borderStyle: 'dashed',
+              }}
+              onPress={openAddTaskModal}
+              activeOpacity={0.7}
+            >
+              <View style={{
+                width: 24,
+                height: 24,
+                borderRadius: 12,
+                backgroundColor: colors.primary,
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginRight: 12,
+              }}>
+                <Text style={{ color: 'white', fontSize: 16, fontWeight: 'bold' }}>+</Text>
+              </View>
+
+              <Text style={{
+                flex: 1,
+                fontSize: 16,
+                color: colors.primary,
+                fontWeight: '500',
+              }}>
+                Add Task
+              </Text>
+            </TouchableOpacity>
           </View>
         )}
 
