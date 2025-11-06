@@ -5,7 +5,7 @@ import Header from '@/components/layout/Header';
 import LoopCard from '@/components/loops/LoopCard';
 import { LoopType, Loop, LOOP_LIBRARY_COLORS } from '@/types/loop';
 import { motion } from 'framer-motion';
-import { getAllLoops, deleteLoop } from '@/lib/loopStorage';
+import { getAllLoops, deleteLoop, addLoop } from '@/lib/loopStorage';
 import { useRouter } from 'next/navigation';
 import { usePathname } from 'next/navigation';
 import SearchBar from '@/components/ui/SearchBar';
@@ -116,17 +116,228 @@ export default function Home() {
     }
   };
   
+  const favoriteLoops = allLoops.filter(l => l.isFavorite);
+  const personalLoops = allLoops.filter(l => l.type === 'personal');
+  const workLoops = allLoops.filter(l => l.type === 'work');
+  const dailyLoops = allLoops.filter(l => l.type === 'daily');
+
+  const templateLoops = [
+    { id: '1', name: 'Morning Routine', color: '#FBBF24', icon: '☕', tasks: ['Drink water', 'Meditate 5 min', 'Make bed'], autoReloop: 'daily' },
+    { id: '2', name: 'Workday Prep', color: '#60A5FA', icon: '💼', tasks: ['Pack lunch', 'Check emails', 'Grab keys'], autoReloop: 'daily' },
+    { id: '3', name: 'Camping Trip', color: '#34D399', icon: '🏕️', tasks: ['Pack tent', 'Fill water', 'Check stove'], autoReloop: 'manual' },
+  ];
+
+  const handleTryLoop = (template) => {
+    const newId = Date.now().toString();
+    const newLoop = {
+      id: newId,
+      title: template.name,
+      type: template.autoReloop === 'daily' ? 'daily' : 'personal',
+      status: 'active',
+      totalTasks: template.tasks.length,
+      completedTasks: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      currentStreak: 0,
+      longestStreak: 0,
+      completionHistory: [],
+      isFavorite: false,
+      color: template.color,
+      items: template.tasks.map((title, order) => ({
+        id: `${newId}-${order}`,
+        title,
+        completed: false,
+        order,
+      })),
+    };
+    addLoop(newLoop);
+    showToast(`Created "${template.name}" from template`, 'success');
+    loadLoops();
+    router.push(`/loops/${newId}`);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
       {/* Header */}
       <Header userName="Robert" />
       
-      {/* Main Content */}
-      <main className="max-w-[450px] mx-auto px-4 md:px-6 py-4 md:py-8">
-        <div className="flex flex-col gap-8">
-          <div className="flex-1 min-w-0">
-            {/* Search Bar and Create Button - Side by Side */}
-            <div className="flex gap-4 mb-6">
+      <div className="flex">
+        {/* Left Sidebar */}
+        <aside className="w-80 bg-white border-r border-gray-200 min-h-screen p-6">
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-gray-900">My Lists</h2>
+              <button
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <path d="M 8 4 L 8 8 L 4 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M 16 4 L 16 8 L 20 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+            </div>
+
+            {/* Navigation Items */}
+            <div className="space-y-1">
+              <button
+                onClick={() => setFilter('all')}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors ${
+                  filter === 'all' ? 'bg-gray-100' : 'hover:bg-gray-50'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-gray-600">
+                    <path d="M 3 9 L 12 3 L 21 9 L 21 20 L 15 20 L 15 14 L 9 14 L 9 20 L 3 20 Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
+                  </svg>
+                  <span className="text-gray-700 font-medium">All Lists</span>
+                </div>
+                <span className="text-gray-500 text-sm">{allLoops.length}</span>
+              </button>
+
+              <button
+                onClick={() => setFilter('favorites')}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors ${
+                  filter === 'favorites' ? 'bg-gray-100' : 'hover:bg-gray-50'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" className="text-yellow-400">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                  </svg>
+                  <span className="text-gray-700 font-medium">Favorites</span>
+                </div>
+                <span className="text-gray-500 text-sm">{favoriteLoops.length}</span>
+              </button>
+
+              <button
+                onClick={() => setFilter('personal')}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors ${
+                  filter === 'personal' ? 'bg-gray-100' : 'hover:bg-gray-50'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-5 h-5 rounded border-2 border-purple-500"></div>
+                  <span className="text-gray-700 font-medium">Personal</span>
+                </div>
+                <span className="text-gray-500 text-sm">{personalLoops.length}</span>
+              </button>
+
+              <button
+                onClick={() => setFilter('work')}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors ${
+                  filter === 'work' ? 'bg-gray-100' : 'hover:bg-gray-50'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-5 h-5 rounded border-2 border-blue-500"></div>
+                  <span className="text-gray-700 font-medium">Work</span>
+                </div>
+                <span className="text-gray-500 text-sm">{workLoops.length}</span>
+              </button>
+
+              <button
+                onClick={() => setFilter('daily')}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors ${
+                  filter === 'daily' ? 'bg-gray-100' : 'hover:bg-gray-50'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-5 h-5 rounded border-2 border-orange-500"></div>
+                  <span className="text-gray-700 font-medium">Daily</span>
+                </div>
+                <span className="text-gray-500 text-sm">{dailyLoops.length}</span>
+              </button>
+            </div>
+
+            {/* Create New List Button */}
+            <button
+              onClick={() => router.push('/loops/create')}
+              className="w-full mt-4 flex items-center justify-between px-3 py-2 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-gray-600">
+                  <path d="M 12 6 L 12 18 M 6 12 L 18 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+                <span className="text-gray-600 text-sm font-medium">Create new list</span>
+              </div>
+              <span className="text-gray-400 text-xs">⌘L</span>
+            </button>
+          </div>
+
+          {/* Library Section */}
+          <div className="border-t border-gray-200 pt-6">
+            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Loop Library</h3>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setFilter('favorites')}
+                className={`py-3 px-3 rounded-lg font-medium transition-all text-center text-sm ${
+                  filter === 'favorites'
+                    ? 'text-white opacity-90'
+                    : 'text-white opacity-100 hover:opacity-90'
+                }`}
+                style={{ backgroundColor: LOOP_LIBRARY_COLORS[0] }}
+              >
+                Favorites
+              </button>
+              <button
+                onClick={() => setFilter('personal')}
+                className={`py-3 px-3 rounded-lg font-medium transition-all text-center text-sm ${
+                  filter === 'personal'
+                    ? 'text-white opacity-90'
+                    : 'text-white opacity-100 hover:opacity-90'
+                }`}
+                style={{ backgroundColor: LOOP_LIBRARY_COLORS[1] }}
+              >
+                Personal
+              </button>
+              <button
+                onClick={() => setFilter('work')}
+                className={`py-3 px-3 rounded-lg font-medium transition-all text-center text-sm ${
+                  filter === 'work'
+                    ? 'text-white opacity-90'
+                    : 'text-white opacity-100 hover:opacity-90'
+                }`}
+                style={{ backgroundColor: LOOP_LIBRARY_COLORS[2] }}
+              >
+                Work
+              </button>
+              <button
+                className="py-3 px-3 rounded-lg font-medium transition-all text-center text-sm text-white opacity-100 hover:opacity-90"
+                style={{ backgroundColor: LOOP_LIBRARY_COLORS[3] }}
+              >
+                Shared
+              </button>
+            </div>
+            <button
+              onClick={() => router.push('/library')}
+              className="w-full mt-3 py-3 px-3 rounded-lg border-2 border-dashed border-gray-300 hover:border-gray-400 hover:bg-gray-50 transition-all flex items-center justify-center gap-2"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="text-gray-400"
+              >
+                <path
+                  d="M 12 5 L 12 19 M 5 12 L 19 12"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
+              <span className="text-gray-600 text-sm font-medium">Manage Folders</span>
+            </button>
+          </div>
+        </aside>
+
+        {/* Main Content */}
+        <main className="flex-1 max-w-[940px] mx-auto px-8 py-8">
+          <div className="flex flex-col gap-8">
+            <div className="flex-1 min-w-0">
+              {/* Search Bar and Create Button - Side by Side */}
+              <div className="flex gap-4 mb-8">
               <div className="flex-[2]">
                 <SearchBar loops={allLoops} onSelect={handleLoopClick} />
               </div>
@@ -157,174 +368,32 @@ export default function Home() {
               </div>
             </div>
             
-            {/* Favorites Section */}
+            {/* Header with greeting */}
+            <motion.div
+              className="mb-8"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1, duration: 0.5 }}
+            >
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                Good Morning, Robert! 👋
+              </h1>
+              <p className="text-gray-600">
+                Today, {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+              </p>
+            </motion.div>
+            
+            {/* Filtered Loops List */}
             <motion.div
               className="mb-8"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2, duration: 0.5 }}
             >
-              <h2 className="text-lg font-bold text-gray-900 mb-4">Favorites</h2>
-              {allLoops.filter(loop => loop.isFavorite).length > 0 ? (
-                <div className="bg-white rounded-xl shadow-sm divide-y divide-gray-100">
-                  {allLoops.filter(loop => loop.isFavorite).map((loop) => (
-                    <div
-                      key={loop.id}
-                      onClick={() => handleLoopClick(loop.id)}
-                      className="py-3 px-4 hover:bg-gray-50 cursor-pointer transition-colors flex items-center gap-3 group"
-                    >
-                      <svg
-                        width="24"
-                        height="24"
-                        viewBox="0 0 444.25 444.25"
-                        className="flex-shrink-0"
-                        style={{ fill: getLoopColor(loop) }}
-                      >
-                        <path d="M239.72,111.74l30.57-25.47c-12.11-9.89-24.22-19.79-36.33-29.68,11.16,1,78.57,8.2,124.27,67.79,4.09,5.34,43.27,54.72,35,126.27-2.14,18.49-6.5,33.53-10.41,43.86l17.72,11.08-72.81,27.39c-4.65-25.62-8.64-51.32-12.63-76.79,7.09,3.77,12.18,6.65,19.72,10.63,8.64-34.78,3.99-81.08-20.16-109.21-31.65-36.88-62.25-42.53-74.95-45.85Z"/>
-                        <path d="M311.88,310.36c2.15,13.09,4.29,26.18,6.44,39.27,14.67-5.41,29.34-10.83,44.01-16.24-6.53,9.11-46.94,63.55-121.47,72.69-6.68.82-69.1,9.52-126.56-33.91-14.85-11.22-25.6-22.62-32.51-31.23-6.18,3.22-12.36,6.43-18.54,9.65,4.45-25.55,8.89-51.09,13.34-76.64,24.44,8.99,48.61,18.6,72.58,28.09-6.84,4.2-11.91,7.13-19.17,11.59,25.59,25.09,67.84,44.57,104.34,38.04,47.84-8.56,68.23-32.06,77.54-41.32Z"/>
-                        <path d="M104.99,274.14c-12.41-4.7-24.81-9.39-37.22-14.09-2.66,15.41-5.32,30.82-7.98,46.23-4.62-10.22-31.5-72.45-2.1-141.54,2.63-6.19,26.36-64.59,92.73-92.57,17.15-7.23,32.39-10.83,43.31-12.51.31-6.96.62-13.92.93-20.88,19.89,16.64,39.77,33.28,59.66,49.92-20.02,16.65-40.44,32.76-60.66,48.76-.21-8.02-.21-13.88-.44-22.4-34.53,9.58-72.56,36.4-85.18,71.26-16.55,45.7-6.42,75.12-3.07,87.81Z"/>
-                      </svg>
-                      <div className="text-gray-900 flex-1">{loop.title}</div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteClick(loop.id, loop.title);
-                        }}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity ml-2 p-1 hover:bg-red-100 rounded text-red-600"
-                        aria-label={`Delete loop "${loop.title}"`}
-                      >
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 16 16"
-                          fill="none"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            d="M 4 4 L 12 12 M 12 4 L 4 12"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                          />
-                        </svg>
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="bg-white rounded-xl shadow-sm p-8 text-center text-gray-500">
-                  <p className="text-sm">No favorite loops yet. Mark a loop as favorite when creating it!</p>
-                </div>
-              )}
-            </motion.div>
-            
-            {/* My Loops Section */}
-            <motion.div
-              className="mb-8"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.25, duration: 0.5 }}
-            >
-              <h2 className="text-lg font-bold text-gray-900 mb-4">My Loops</h2>
-              <div className="bg-white rounded-xl shadow-sm divide-y divide-gray-100">
-                <div className="py-3 px-4 hover:bg-gray-50 cursor-pointer transition-colors">
-                  <div className="text-gray-900">My Day</div>
-                </div>
-                <div className="py-3 px-4 hover:bg-gray-50 cursor-pointer transition-colors">
-                  <div className="text-gray-900">Important</div>
-                </div>
-                <div className="py-3 px-4 hover:bg-gray-50 cursor-pointer transition-colors">
-                  <div className="text-gray-900">Planned</div>
-                </div>
-                <div className="py-3 px-4 hover:bg-gray-50 cursor-pointer transition-colors">
-                  <div className="text-gray-900">Assigned to me</div>
-                </div>
-              </div>
-            </motion.div>
-            
-            {/* Loop Library Section */}
-            <motion.div
-              className="mb-8"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3, duration: 0.5 }}
-            >
-              <h2 className="text-lg font-bold text-gray-900 mb-4">Loop Library</h2>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => setFilter('favorites')}
-                  className={`py-4 px-4 rounded-xl font-medium transition-all text-center ${
-                    filter === 'favorites'
-                      ? 'text-white opacity-80'
-                      : 'text-white opacity-100 shadow-md hover:opacity-100'
-                  }`}
-                  style={{ backgroundColor: LOOP_LIBRARY_COLORS[0] }}
-                >
-                  Favorites
-                </button>
-                <button
-                  onClick={() => setFilter('personal')}
-                  className={`py-4 px-4 rounded-xl font-medium transition-all text-center ${
-                    filter === 'personal'
-                      ? 'text-white opacity-80'
-                      : 'text-white opacity-100 shadow-md hover:opacity-100'
-                  }`}
-                  style={{ backgroundColor: LOOP_LIBRARY_COLORS[1] }}
-                >
-                  Personal
-                </button>
-                <button
-                  onClick={() => setFilter('work')}
-                  className={`py-4 px-4 rounded-xl font-medium transition-all text-center ${
-                    filter === 'work'
-                      ? 'text-white opacity-80'
-                      : 'text-white opacity-100 shadow-md hover:opacity-100'
-                  }`}
-                  style={{ backgroundColor: LOOP_LIBRARY_COLORS[2] }}
-                >
-                  Work
-                </button>
-                <button
-                  className="py-4 px-4 rounded-xl font-medium transition-all text-center text-white opacity-100 shadow-md hover:opacity-100"
-                  style={{ backgroundColor: LOOP_LIBRARY_COLORS[3] }}
-                >
-                  Shared
-                </button>
-                <button
-                  onClick={() => router.push('/library')}
-                  className="py-4 px-4 rounded-xl border-2 border-dashed border-gray-300 hover:border-gray-400 hover:bg-gray-50 transition-all flex items-center justify-center col-span-2"
-                >
-                  <svg
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="text-gray-400"
-                  >
-                    <path
-                      d="M 12 5 L 12 19 M 5 12 L 19 12"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                  <span className="ml-2 text-gray-600 font-medium">Manage Folders</span>
-                </button>
-              </div>
-            </motion.div>
-            
-            {/* Filtered Loops List */}
-            {filteredLoops.length > 0 && (
-              <motion.div
-                className="mb-8"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4, duration: 0.5 }}
-              >
-                <h2 className="text-lg font-bold text-gray-900 mb-4">
-                  {filter === 'all' ? 'All Loops' : filter === 'favorites' ? 'Favorites' : filter === 'daily' ? 'Daily' : filter === 'work' ? 'Work' : 'Personal'}
-                </h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                {filter === 'all' ? 'All Loops' : filter === 'favorites' ? 'Favorites' : filter === 'daily' ? 'Daily' : filter === 'work' ? 'Work' : 'Personal'}
+              </h2>
+              {filteredLoops.length > 0 ? (
                 <div className="bg-white rounded-xl shadow-sm divide-y divide-gray-100">
                   {filteredLoops.map((loop) => (
                     <LoopCard 
@@ -335,29 +404,83 @@ export default function Home() {
                     />
                   ))}
                 </div>
-              </motion.div>
-            )}
-        
-            {/* Empty State */}
-            {filteredLoops.length === 0 && (
-              <motion.div
-                className="text-center py-16"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.4 }}
-              >
-                <div className="text-6xl mb-4">🔄</div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                  No loops found
-                </h3>
-                <p className="text-gray-600">
-                  Create your first loop to get started!
-                </p>
-              </motion.div>
-            )}
+              ) : (
+                allLoops.length === 0 ? (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3, duration: 0.5 }}
+                    className="bg-white rounded-xl shadow-sm p-6"
+                  >
+                    <p className="text-center text-gray-600 mb-6 font-medium">
+                      Ready to loop your day? Pick a starter:
+                    </p>
+                    <div className="flex overflow-x-auto snap-x snap-mandatory space-x-4 pb-4 -mx-6 px-6">
+                      {templateLoops.map((item) => (
+                        <div
+                          key={item.id}
+                          className="snap-center flex-shrink-0 w-[300px] h-[200px] rounded-2xl shadow-md overflow-hidden text-white"
+                          style={{ backgroundColor: item.color }}
+                        >
+                          <div className="p-4 h-full flex flex-col justify-between">
+                            <div>
+                              <div className="flex items-center mb-3">
+                                <span className="text-3xl mr-2">{item.icon}</span>
+                                <h3 className="font-bold text-xl">{item.name}</h3>
+                              </div>
+                              <div className="space-y-2 mb-4">
+                                {item.tasks.slice(0, 3).map((task, idx) => (
+                                  <div key={idx} className="flex items-center">
+                                    <div className="w-5 h-5 rounded-full border-2 border-white mr-2 flex-shrink-0" />
+                                    <span>{task}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="bg-white/30 rounded-full h-2 mb-3">
+                                <div className="bg-white rounded-full h-2 w-0" />
+                              </div>
+                              <button
+                                onClick={() => handleTryLoop(item)}
+                                className="w-full bg-[#6D28D9] hover:bg-[#5B21B6] text-white py-2 rounded-lg font-medium transition-colors"
+                              >
+                                Try This Loop
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
+                ) : (
+                  <div className="bg-white rounded-xl shadow-sm p-12 text-center">
+                    <div className="text-gray-400 mb-4">
+                      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" className="mx-auto mb-4">
+                        <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2"/>
+                        <path d="M 12 8 L 12 12 L 15 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                      </svg>
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      No {filter === 'favorites' ? 'favorite' : filter} loops yet
+                    </h3>
+                    <p className="text-gray-500 mb-6">
+                      Create one to get started!
+                    </p>
+                    <button
+                      onClick={() => router.push('/loops/create')}
+                      className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg transition-colors"
+                    >
+                      Create Loop
+                    </button>
+                  </div>
+                )
+              )}
+            </motion.div>
+            </div>
           </div>
-        </div>
-      </main>
+        </main>
+      </div>
 
       {/* Confirmation Dialog */}
       <ConfirmDialog
