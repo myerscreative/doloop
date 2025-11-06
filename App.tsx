@@ -21,12 +21,23 @@ export type RootStackParamList = {
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
+const linking = {
+  prefixes: ['http://localhost:8081', 'https://doloop.app'],
+  config: {
+    screens: {
+      Login: 'login',
+      Home: '',
+      LoopDetail: 'loop/:loopId',
+    },
+  },
+};
+
 export default function App() {
   return (
     <SafeAreaProvider>
       <ThemeProvider>
         <AuthProvider>
-          <NavigationContainer>
+          <NavigationContainer linking={linking}>
             <Stack.Navigator
               initialRouteName="Home"
               screenOptions={{
