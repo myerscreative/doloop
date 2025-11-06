@@ -11,20 +11,31 @@ import {
 } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 
+interface Task {
+  id: string;
+  description: string;
+  notes?: string;
+  is_one_time: boolean;
+}
+
 interface FABProps {
   onAddTask: (description: string, isOneTime: boolean, notes?: string) => Promise<void>;
+  onEditTask?: (taskId: string, description: string, isOneTime: boolean, notes?: string) => Promise<void>;
   centered?: boolean;
   modalVisible?: boolean;
   setModalVisible?: (visible: boolean) => void;
   hideButton?: boolean;
+  editingTask?: Task | null;
 }
 
 export const FAB: React.FC<FABProps> = ({ 
-  onAddTask, 
+  onAddTask,
+  onEditTask,
   centered = false,
   modalVisible: externalModalVisible,
   setModalVisible: externalSetModalVisible,
-  hideButton = false
+  hideButton = false,
+  editingTask = null,
 }) => {
   const { colors } = useTheme();
   const [internalModalVisible, setInternalModalVisible] = useState(false);
@@ -37,6 +48,19 @@ export const FAB: React.FC<FABProps> = ({
   const modalVisible = externalModalVisible ?? internalModalVisible;
   const setModalVisible = externalSetModalVisible ?? setInternalModalVisible;
 
+  // Pre-fill form when editing
+  React.useEffect(() => {
+    if (editingTask) {
+      setDescription(editingTask.description);
+      setNotes(editingTask.notes || '');
+      setIsOneTime(editingTask.is_one_time);
+    } else {
+      setDescription('');
+      setNotes('');
+      setIsOneTime(false);
+    }
+  }, [editingTask]);
+
   const handleSubmit = async () => {
     if (!description.trim()) {
       Alert.alert('Error', 'Please enter a task description');
@@ -45,13 +69,17 @@ export const FAB: React.FC<FABProps> = ({
 
     setLoading(true);
     try {
-      await onAddTask(description.trim(), isOneTime, notes.trim() || undefined);
+      if (editingTask && onEditTask) {
+        await onEditTask(editingTask.id, description.trim(), isOneTime, notes.trim() || undefined);
+      } else {
+        await onAddTask(description.trim(), isOneTime, notes.trim() || undefined);
+      }
       setModalVisible(false);
       setDescription('');
       setNotes('');
       setIsOneTime(false);
     } catch (error) {
-      Alert.alert('Error', 'Failed to add task');
+      Alert.alert('Error', editingTask ? 'Failed to update task' : 'Failed to add task');
     } finally {
       setLoading(false);
     }
@@ -132,7 +160,7 @@ export const FAB: React.FC<FABProps> = ({
                   marginBottom: 16,
                 }}
               >
-                Add New Task
+                {editingTask ? 'Edit Task' : 'Add New Task'}
               </Text>
 
               <TextInput
@@ -222,7 +250,7 @@ export const FAB: React.FC<FABProps> = ({
                   disabled={loading}
                 >
                   <Text style={{ color: 'white', fontSize: 16, fontWeight: 'bold' }}>
-                    {loading ? 'Adding...' : 'Add Task'}
+                    {loading ? (editingTask ? 'Saving...' : 'Adding...') : (editingTask ? 'Save' : 'Add Task')}
                   </Text>
                 </TouchableOpacity>
               </View>

@@ -34,6 +34,7 @@ export const LoopDetailScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [showResetMenu, setShowResetMenu] = useState(false);
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   const formatNextReset = (nextResetAt: string | null) => {
     if (!nextResetAt) return 'Not scheduled';
@@ -162,8 +163,93 @@ export const LoopDetailScreen: React.FC = () => {
     }
   };
 
+  const handleEditTask = async (taskId: string, description: string, isOneTime: boolean, notes?: string) => {
+    try {
+      console.log('[LoopDetail] Editing task:', { taskId, description, isOneTime, notes });
+      const { error } = await supabase
+        .from('tasks')
+        .update({
+          description,
+          notes: notes || null,
+          is_one_time: isOneTime,
+        })
+        .eq('id', taskId);
+
+      if (error) {
+        console.error('[LoopDetail] Database error:', error);
+        throw error;
+      }
+
+      console.log('[LoopDetail] Task updated successfully');
+      await loadLoopData();
+      setShowAddTaskModal(false);
+      setEditingTask(null);
+    } catch (error) {
+      console.error('[LoopDetail] Error updating task:', error);
+      throw error;
+    }
+  };
+
   const openAddTaskModal = () => {
+    setEditingTask(null);
     setShowAddTaskModal(true);
+  };
+
+  const handleLongPressTask = (task: Task) => {
+    Alert.alert(
+      task.description,
+      'Choose an action',
+      [
+        {
+          text: 'Edit',
+          onPress: () => {
+            setEditingTask(task);
+            setShowAddTaskModal(true);
+          },
+        },
+        {
+          text: 'Delete',
+          onPress: () => handleDeleteTask(task),
+          style: 'destructive',
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+      ]
+    );
+  };
+
+  const handleDeleteTask = async (task: Task) => {
+    Alert.alert(
+      'Delete Task',
+      `Are you sure you want to delete "${task.description}"?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { error } = await supabase
+                .from('tasks')
+                .delete()
+                .eq('id', task.id);
+
+              if (error) throw error;
+
+              await loadLoopData();
+            } catch (error) {
+              console.error('Error deleting task:', error);
+              Alert.alert('Error', 'Failed to delete task');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleReloop = async () => {
@@ -467,6 +553,8 @@ export const LoopDetailScreen: React.FC = () => {
                   marginBottom: 8,
                 }}
                 onPress={() => toggleTask(task)}
+                onLongPress={() => handleLongPressTask(task)}
+                delayLongPress={500}
               >
                 <View style={{
                   width: 24,
@@ -645,10 +733,12 @@ export const LoopDetailScreen: React.FC = () => {
 
       {/* Task Modal (no button, just the modal) */}
       <FAB 
-        onAddTask={handleAddTask} 
+        onAddTask={handleAddTask}
+        onEditTask={handleEditTask}
         modalVisible={showAddTaskModal}
         setModalVisible={setShowAddTaskModal}
         hideButton={true}
+        editingTask={editingTask}
       />
     </SafeAreaView>
   );
