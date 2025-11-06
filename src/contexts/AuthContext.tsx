@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase, getCurrentUser } from '../lib/supabase';
+import { supabase, getCurrentUser, isSupabaseConfigured } from '../lib/supabase';
 import { User, Session } from '@supabase/supabase-js';
 
 interface AuthContextType {
@@ -21,15 +21,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     // Get initial session
     const getInitialSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
+      if (!isSupabaseConfigured) {
+        console.log('📱 Running in demo mode - no authentication required');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setSession(session);
+        setUser(session?.user ?? null);
+      } catch (error) {
+        console.warn('Error getting session:', error);
+      } finally {
+        setLoading(false);
+      }
     };
 
     getInitialSession();
 
     // Listen for auth changes
+    if (!isSupabaseConfigured) {
+      return; // No subscription needed in demo mode
+    }
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         setSession(session);
@@ -42,23 +57,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    return { error };
+    if (!isSupabaseConfigured) {
+      return { error: new Error('Auth not configured - running in demo mode') };
+    }
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      return { error };
+    } catch (error) {
+      return { error };
+    }
   };
 
   const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
-    return { error };
+    if (!isSupabaseConfigured) {
+      return { error: new Error('Auth not configured - running in demo mode') };
+    }
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+      return { error };
+    } catch (error) {
+      return { error };
+    }
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    if (!isSupabaseConfigured) {
+      return;
+    }
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.warn('Error signing out:', error);
+    }
   };
 
   return (

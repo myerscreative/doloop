@@ -1,4 +1,6 @@
-import 'react-native-url-polyfill/auto'; // MUST be first
+import 'react-native-gesture-handler'; // MUST be first for web
+import 'react-native-url-polyfill/auto';
+import './src/web-polyfills';
 import React from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
