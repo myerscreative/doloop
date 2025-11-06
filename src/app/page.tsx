@@ -130,9 +130,9 @@ export default function Home() {
   };
 
   return (
-    <div className="flex-1 bg-gray-50">
+    <div className="min-h-screen bg-gray-50 pb-8">
       {/* Header */}
-      <div className="flex justify-between items-center px-5 pt-4 pb-2">
+      <div className="flex justify-between items-center px-5 pt-6 pb-2">
         <span className="text-xs text-gray-500">Wednesday, November 5</span>
       </div>
 
@@ -181,7 +181,7 @@ export default function Home() {
           >
             <button
               onClick={() => handleTryLoop(item)}
-              className="w-[300px] bg-white rounded-3xl p-5 shadow-lg"
+              className="w-[300px] bg-white rounded-3xl p-5 shadow-lg hover:shadow-xl transition-shadow text-left"
             >
               <div className="flex items-center mb-3">
                 <span className="text-3xl mr-2">{item.icon}</span>
