@@ -9,6 +9,15 @@ import { Loop, LoopType } from '@/types/loop';
 import Toast from '@/components/ui/Toast';
 import { useToast } from '@/lib/useToast';
 
+interface TemplateLoop {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+  tasks: string[];
+  progress: number;
+}
+
 export default function Home() {
   const router = useRouter();
   const pathname = usePathname();
@@ -96,7 +105,7 @@ export default function Home() {
     },
   ];
 
-  const handleTryLoop = (template) => {
+  const handleTryLoop = (template: TemplateLoop) => {
     // Generate unique ID
     const loopId = `loop-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
