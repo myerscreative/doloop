@@ -21,6 +21,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { Folder, LoopType, FOLDER_ICONS, FOLDER_COLORS } from '../types/loop';
 import { Header } from '../components/Header';
+import { LoopSelectionModal } from '../components/LoopSelectionModal';
 
 type HomeScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
@@ -36,6 +37,9 @@ export const HomeScreen: React.FC = () => {
   const [newLoopName, setNewLoopName] = useState('');
   const [selectedLoopType, setSelectedLoopType] = useState<LoopType>('personal');
   const [creating, setCreating] = useState(false);
+  const [selectionModalVisible, setSelectionModalVisible] = useState(false);
+  const [loopsToSelect, setLoopsToSelect] = useState<any[]>([]);
+  const [selectedFolderName, setSelectedFolderName] = useState('');
 
   useEffect(() => {
     updateDate();
@@ -151,18 +155,11 @@ export const HomeScreen: React.FC = () => {
         return;
       }
 
-      // If multiple loops, show selection using native alert for now
+      // If multiple loops, show selection modal
       console.log('[HomeScreen] Multiple loops found:', loopsInFolder.length);
-      const loopNames = loopsInFolder.map((loop: any) => `${loop.name}`).join('\n');
-      const response = prompt(`Select a loop from ${folderId}:\n\n${loopNames}\n\nEnter loop number (1-${loopsInFolder.length}):`);
-      
-      if (response) {
-        const index = parseInt(response) - 1;
-        if (index >= 0 && index < loopsInFolder.length) {
-          console.log('[HomeScreen] Navigating to selected loop:', loopsInFolder[index].id);
-          navigation.navigate('LoopDetail', { loopId: loopsInFolder[index].id });
-        }
-      }
+      setLoopsToSelect(loopsInFolder);
+      setSelectedFolderName(folderId.charAt(0).toUpperCase() + folderId.slice(1));
+      setSelectionModalVisible(true);
     } catch (error) {
       console.error('[HomeScreen] Error loading folder loops:', error);
       alert('Failed to load loops. Check console for details.');
@@ -468,6 +465,19 @@ export const HomeScreen: React.FC = () => {
           </TouchableOpacity>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Loop Selection Modal */}
+      <LoopSelectionModal
+        visible={selectionModalVisible}
+        loops={loopsToSelect}
+        folderName={selectedFolderName}
+        onSelect={(loopId) => {
+          console.log('[HomeScreen] Loop selected from modal:', loopId);
+          setSelectionModalVisible(false);
+          navigation.navigate('LoopDetail', { loopId });
+        }}
+        onClose={() => setSelectionModalVisible(false)}
+      />
     </SafeAreaView>
   );
 };
