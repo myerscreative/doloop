@@ -20,6 +20,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { Folder, LoopType, FOLDER_ICONS, FOLDER_COLORS } from '../types/loop';
+import { Header } from '../components/Header';
 
 type HomeScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
@@ -71,7 +72,7 @@ export const HomeScreen: React.FC = () => {
       const { data: userLoops, error: loopsError } = await supabase
         .from('loops')
         .select('*')
-        .eq('owner', user.id);
+        .eq('owner_id', user.id);
 
       if (loopsError) throw loopsError;
 
@@ -104,7 +105,8 @@ export const HomeScreen: React.FC = () => {
         }
       });
 
-      setFolders(Object.values(folderMap).filter(folder => folder.count > 0));
+      // Show ALL folders, even if they have 0 loops
+      setFolders(Object.values(folderMap));
     } catch (error) {
       console.error('Error loading home data:', error);
     }
@@ -116,9 +118,55 @@ export const HomeScreen: React.FC = () => {
     setRefreshing(false);
   };
 
-  const handleFolderPress = (folderId: string) => {
-    // Navigate to folder view - you might want to create a separate screen for this
-    console.log('Folder pressed:', folderId);
+  const handleFolderPress = async (folderId: string) => {
+    console.log('[HomeScreen] Folder pressed:', folderId);
+    console.log('[HomeScreen] User ID:', user?.id);
+    
+    try {
+      // Get all loops for this folder type
+      console.log('[HomeScreen] Querying loops for folder:', folderId);
+      const { data: loopsInFolder, error } = await supabase
+        .from('loops')
+        .select('*')
+        .eq('owner_id', user?.id)
+        .eq('loop_type', folderId);
+
+      console.log('[HomeScreen] Query result:', { loopsInFolder, error });
+
+      if (error) {
+        console.error('[HomeScreen] Query error:', error);
+        throw error;
+      }
+
+      if (!loopsInFolder || loopsInFolder.length === 0) {
+        console.log('[HomeScreen] No loops in folder');
+        alert(`No loops in ${folderId} folder yet. Create one using the + button!`);
+        return;
+      }
+
+      // If only one loop, navigate directly to it
+      if (loopsInFolder.length === 1) {
+        console.log('[HomeScreen] Navigating to single loop:', loopsInFolder[0].id);
+        navigation.navigate('LoopDetail', { loopId: loopsInFolder[0].id });
+        return;
+      }
+
+      // If multiple loops, show selection using native alert for now
+      console.log('[HomeScreen] Multiple loops found:', loopsInFolder.length);
+      const loopNames = loopsInFolder.map((loop: any) => `${loop.name}`).join('\n');
+      const response = prompt(`Select a loop from ${folderId}:\n\n${loopNames}\n\nEnter loop number (1-${loopsInFolder.length}):`);
+      
+      if (response) {
+        const index = parseInt(response) - 1;
+        if (index >= 0 && index < loopsInFolder.length) {
+          console.log('[HomeScreen] Navigating to selected loop:', loopsInFolder[index].id);
+          navigation.navigate('LoopDetail', { loopId: loopsInFolder[index].id });
+        }
+      }
+    } catch (error) {
+      console.error('[HomeScreen] Error loading folder loops:', error);
+      alert('Failed to load loops. Check console for details.');
+    }
   };
 
   const handleSignOut = async () => {
@@ -127,21 +175,27 @@ export const HomeScreen: React.FC = () => {
   };
 
   const handleCreateLoop = async () => {
+    console.log('[HomeScreen] Create loop button clicked');
+    
     if (!newLoopName.trim()) {
+      console.log('[HomeScreen] Empty loop name');
       Alert.alert('Error', 'Please enter a loop name');
       return;
     }
 
+    console.log('[HomeScreen] Creating loop:', newLoopName, selectedLoopType);
     setCreating(true);
+    
     try {
       // Calculate next reset time based on reset rule
       const nextResetAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 hours from now for daily
 
+      console.log('[HomeScreen] Inserting into database...');
       const { data, error } = await supabase
         .from('loops')
         .insert({
           name: newLoopName.trim(),
-          owner: user?.id,
+          owner_id: user?.id,
           loop_type: selectedLoopType,
           color: FOLDER_COLORS[selectedLoopType],
           reset_rule: 'daily',
@@ -150,8 +204,12 @@ export const HomeScreen: React.FC = () => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('[HomeScreen] Database error:', error);
+        throw error;
+      }
 
+      console.log('[HomeScreen] Loop created successfully:', data);
       setModalVisible(false);
       setNewLoopName('');
       setSelectedLoopType('personal');
@@ -159,11 +217,12 @@ export const HomeScreen: React.FC = () => {
       
       // Navigate to the newly created loop
       if (data) {
+        console.log('[HomeScreen] Navigating to loop:', data.id);
         navigation.navigate('LoopDetail', { loopId: data.id });
       }
-    } catch (error) {
-      console.error('Error creating loop:', error);
-      Alert.alert('Error', 'Failed to create loop');
+    } catch (error: any) {
+      console.error('[HomeScreen] Error creating loop:', error);
+      Alert.alert('Error', `Failed to create loop: ${error?.message || 'Unknown error'}`);
     } finally {
       setCreating(false);
     }
@@ -181,49 +240,7 @@ export const HomeScreen: React.FC = () => {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Header */}
-      <View style={{
-        paddingHorizontal: 20,
-        paddingVertical: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.border,
-      }}>
-        <Text style={{
-          fontSize: 16,
-          color: colors.textSecondary,
-          marginBottom: 4,
-        }}>
-          {currentDate}
-        </Text>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <View>
-            <Text style={{
-              fontSize: 24,
-              fontWeight: 'bold',
-              color: colors.text,
-            }}>
-              Good morning! 🌅
-            </Text>
-          </View>
-          {totalStreak > 0 && (
-            <View style={{
-              backgroundColor: '#FFE066',
-              paddingHorizontal: 12,
-              paddingVertical: 6,
-              borderRadius: 16,
-              flexDirection: 'row',
-              alignItems: 'center',
-            }}>
-              <Text style={{
-                fontSize: 18,
-                fontWeight: 'bold',
-                color: '#000',
-              }}>
-                🔥 {totalStreak}
-              </Text>
-            </View>
-          )}
-        </View>
-      </View>
+      <Header currentDate={currentDate} streak={totalStreak} colors={colors} />
 
       {/* Folders */}
       <ScrollView
@@ -280,30 +297,17 @@ export const HomeScreen: React.FC = () => {
                 }}>
                   {folder.name}
                 </Text>
-                <Text style={{
-                  fontSize: 14,
-                  color: colors.textSecondary,
-                }}>
-                  {folder.count} {folder.count === 1 ? 'loop' : 'loops'}
-                </Text>
+                {folder.count > 0 && (
+                  <Text style={{
+                    fontSize: 14,
+                    color: colors.textSecondary,
+                  }}>
+                    {folder.count} {folder.count === 1 ? 'loop' : 'loops'}
+                  </Text>
+                )}
               </View>
             </TouchableOpacity>
           ))}
-
-          {folders.length === 0 && (
-            <View style={{
-              alignItems: 'center',
-              paddingVertical: 40,
-            }}>
-              <Text style={{
-                fontSize: 16,
-                color: colors.textSecondary,
-                textAlign: 'center',
-              }}>
-                No loops yet. Create your first loop to get started!
-              </Text>
-            </View>
-          )}
         </View>
       </ScrollView>
 
