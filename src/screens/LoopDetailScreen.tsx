@@ -33,6 +33,7 @@ export const LoopDetailScreen: React.FC = () => {
   const [loopData, setLoopData] = useState<LoopWithTasks | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [showResetMenu, setShowResetMenu] = useState(false);
+  const [showAddTaskModal, setShowAddTaskModal] = useState(false);
 
   const formatNextReset = (nextResetAt: string | null) => {
     if (!nextResetAt) return 'Not scheduled';
@@ -150,10 +151,15 @@ export const LoopDetailScreen: React.FC = () => {
       if (error) throw error;
 
       await loadLoopData();
+      setShowAddTaskModal(false);
     } catch (error) {
       console.error('Error adding task:', error);
       throw error;
     }
+  };
+
+  const openAddTaskModal = () => {
+    setShowAddTaskModal(true);
   };
 
   const handleReloop = async () => {
@@ -352,8 +358,61 @@ export const LoopDetailScreen: React.FC = () => {
           </Text>
         </View>
 
-        {/* Recurring Tasks */}
-        {recurringTasks.length > 0 && (
+        {/* Recurring Tasks or Empty State */}
+        {recurringTasks.length === 0 ? (
+          <View style={{
+            flex: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
+            paddingHorizontal: 40,
+            paddingVertical: 80,
+            minHeight: 400,
+          }}>
+            <Text style={{
+              fontSize: 28,
+              fontWeight: 'bold',
+              color: colors.text,
+              marginBottom: 12,
+              textAlign: 'center',
+              letterSpacing: -0.5,
+            }}>
+              No steps yet
+            </Text>
+            <Text style={{
+              fontSize: 17,
+              color: colors.textSecondary,
+              textAlign: 'center',
+              marginBottom: 40,
+              lineHeight: 24,
+            }}>
+              Tap the + button to add your first step
+            </Text>
+            <TouchableOpacity
+              style={{
+                width: 72,
+                height: 72,
+                borderRadius: 36,
+                backgroundColor: colors.primary,
+                justifyContent: 'center',
+                alignItems: 'center',
+                elevation: 12,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 6 },
+                shadowOpacity: 0.4,
+                shadowRadius: 12,
+              }}
+              onPress={openAddTaskModal}
+              activeOpacity={0.8}
+            >
+              <Text style={{ 
+                color: '#fff', 
+                fontSize: 40, 
+                fontWeight: '300',
+                marginTop: -2,
+              }}>+</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
           <View style={{ paddingHorizontal: 20, marginBottom: 20 }}>
             <Text style={{
               fontSize: 18,
@@ -503,8 +562,12 @@ export const LoopDetailScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      {/* FAB */}
-      <FAB onAddTask={handleAddTask} />
+      {/* FAB - Always visible */}
+      <FAB 
+        onAddTask={handleAddTask} 
+        modalVisible={showAddTaskModal}
+        setModalVisible={setShowAddTaskModal}
+      />
     </SafeAreaView>
   );
 };

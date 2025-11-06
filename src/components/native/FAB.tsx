@@ -13,14 +13,26 @@ import { useTheme } from '../../contexts/ThemeContext';
 
 interface FABProps {
   onAddTask: (description: string, isOneTime: boolean) => Promise<void>;
+  centered?: boolean;
+  modalVisible?: boolean;
+  setModalVisible?: (visible: boolean) => void;
 }
 
-export const FAB: React.FC<FABProps> = ({ onAddTask }) => {
+export const FAB: React.FC<FABProps> = ({ 
+  onAddTask, 
+  centered = false,
+  modalVisible: externalModalVisible,
+  setModalVisible: externalSetModalVisible
+}) => {
   const { colors } = useTheme();
-  const [modalVisible, setModalVisible] = useState(false);
+  const [internalModalVisible, setInternalModalVisible] = useState(false);
   const [description, setDescription] = useState('');
   const [isOneTime, setIsOneTime] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Use external control if provided, otherwise use internal state
+  const modalVisible = externalModalVisible ?? internalModalVisible;
+  const setModalVisible = externalSetModalVisible ?? setInternalModalVisible;
 
   const handleSubmit = async () => {
     if (!description.trim()) {
@@ -44,7 +56,19 @@ export const FAB: React.FC<FABProps> = ({ onAddTask }) => {
   return (
     <>
       <TouchableOpacity
-        style={{
+        style={centered ? {
+          width: 64,
+          height: 64,
+          borderRadius: 32,
+          backgroundColor: colors.primary,
+          alignItems: 'center',
+          justifyContent: 'center',
+          elevation: 8,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 8,
+        } : {
           position: 'absolute',
           bottom: 24,
           right: 24,
@@ -62,7 +86,7 @@ export const FAB: React.FC<FABProps> = ({ onAddTask }) => {
         }}
         onPress={() => setModalVisible(true)}
       >
-        <Text style={{ fontSize: 24, color: 'white', fontWeight: 'bold' }}>+</Text>
+        <Text style={{ fontSize: centered ? 32 : 24, color: 'white', fontWeight: 'bold' }}>+</Text>
       </TouchableOpacity>
 
       <Modal
