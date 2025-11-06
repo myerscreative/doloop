@@ -7,18 +7,10 @@ const eslintConfig = defineConfig([
     ignores: [
       "node_modules/**",
       ".expo/**",
-      ".next/**",
       "dist/**",
       "**/*.config.js",
-      "**/*.config.ts",
-      // Ignore all old Next.js files
-      "src/app/**",
-      "src/components/layout/**",
-      "src/components/loops/**",
-      "src/components/ui/**",
-      "postcss.config.mjs",
-      "next.config.ts",
-      "next-env.d.ts",
+      "ios/**",
+      "android/**",
     ],
   },
   {
