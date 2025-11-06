@@ -1,23 +1,48 @@
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
-// Get Supabase config from app.json extra or fallback to env vars
-const supabaseUrl = 
-  Constants.expoConfig?.extra?.supabaseUrl || 
-  process.env.EXPO_PUBLIC_SUPABASE_URL || 
-  '';
+// Get Supabase config from environment variables or app.json extra
+// For web builds (Vercel), prioritize process.env
+// For native builds, use Constants.expoConfig.extra
+const supabaseUrl = Platform.OS === 'web'
+  ? (process.env.EXPO_PUBLIC_SUPABASE_URL || Constants.expoConfig?.extra?.supabaseUrl || '')
+  : (Constants.expoConfig?.extra?.supabaseUrl || process.env.EXPO_PUBLIC_SUPABASE_URL || '');
 
-const supabaseAnonKey = 
-  Constants.expoConfig?.extra?.supabaseAnonKey || 
-  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 
-  '';
+const supabaseAnonKey = Platform.OS === 'web'
+  ? (process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || Constants.expoConfig?.extra?.supabaseAnonKey || '')
+  : (Constants.expoConfig?.extra?.supabaseAnonKey || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '');
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('⚠️  Missing Supabase configuration. Please set supabaseUrl and supabaseAnonKey in app.json extra or .env');
+// Validate credentials - don't use placeholder values
+const isValidUrl = (url: string) => {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
+const hasValidCredentials =
+  supabaseUrl &&
+  supabaseAnonKey &&
+  isValidUrl(supabaseUrl) &&
+  !supabaseUrl.includes('YOUR_SUPABASE_URL') &&
+  !supabaseAnonKey.includes('YOUR_SUPABASE_ANON_KEY');
+
+if (!hasValidCredentials) {
+  console.error('❌ Invalid Supabase configuration detected!');
+  console.error('Please set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY environment variables.');
+  console.error('For Vercel: Add these in Project Settings > Environment Variables');
+  console.error('For local dev: Create a .env.local file with these variables');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+// Use dummy values if credentials are missing to prevent initialization errors
+const finalUrl = hasValidCredentials ? supabaseUrl : 'https://placeholder.supabase.co';
+const finalKey = hasValidCredentials ? supabaseAnonKey : 'placeholder-key';
+
+export const supabase = createClient(finalUrl, finalKey, {
   auth: {
     storage: AsyncStorage,
     autoRefreshToken: true,
@@ -41,8 +66,15 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
 });
 
+// Export validation status so app can check if Supabase is configured
+export const isSupabaseConfigured = hasValidCredentials;
+
 // For auth
 export const getCurrentUser = async () => {
+  if (!hasValidCredentials) {
+    console.warn('Supabase not configured, skipping auth check');
+    return null;
+  }
   const { data: { user } } = await supabase.auth.getUser();
   return user;
 };
