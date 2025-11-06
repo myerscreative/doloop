@@ -542,7 +542,7 @@ export const LoopDetailScreen: React.FC = () => {
             </Text>
 
             {recurringTasks.map((task) => (
-              <TouchableOpacity
+              <View
                 key={task.id}
                 style={{
                   flexDirection: 'row',
@@ -552,47 +552,83 @@ export const LoopDetailScreen: React.FC = () => {
                   borderRadius: 8,
                   marginBottom: 8,
                 }}
-                onPress={() => toggleTask(task)}
-                onLongPress={() => handleLongPressTask(task)}
-                delayLongPress={500}
               >
-                <View style={{
-                  width: 24,
-                  height: 24,
-                  borderRadius: 12,
-                  borderWidth: 2,
-                  borderColor: task.completed ? colors.primary : colors.border,
-                  backgroundColor: task.completed ? colors.primary : 'transparent',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginRight: 12,
-                }}>
-                  {task.completed && (
-                    <Text style={{ color: 'white', fontSize: 14 }}>✓</Text>
-                  )}
-                </View>
-
-                <View style={{ flex: 1 }}>
-                  <Text style={{
-                    fontSize: 16,
-                    color: colors.text,
-                    textDecorationLine: task.completed ? 'line-through' : 'none',
-                    opacity: task.completed ? 0.6 : 1,
+                <TouchableOpacity
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    flex: 1,
+                  }}
+                  onPress={() => toggleTask(task)}
+                  onLongPress={() => handleLongPressTask(task)}
+                  delayLongPress={500}
+                >
+                  <View style={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: 12,
+                    borderWidth: 2,
+                    borderColor: task.completed ? colors.primary : colors.border,
+                    backgroundColor: task.completed ? colors.primary : 'transparent',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: 12,
                   }}>
-                    {task.description}
-                  </Text>
-                  {task.notes && (
+                    {task.completed && (
+                      <Text style={{ color: 'white', fontSize: 14 }}>✓</Text>
+                    )}
+                  </View>
+
+                  <View style={{ flex: 1 }}>
                     <Text style={{
-                      fontSize: 13,
-                      color: colors.textSecondary,
-                      marginTop: 4,
-                      opacity: task.completed ? 0.5 : 0.8,
+                      fontSize: 16,
+                      color: colors.text,
+                      textDecorationLine: task.completed ? 'line-through' : 'none',
+                      opacity: task.completed ? 0.6 : 1,
                     }}>
-                      {task.notes}
+                      {task.description}
                     </Text>
-                  )}
+                    {task.notes && (
+                      <Text style={{
+                        fontSize: 13,
+                        color: colors.textSecondary,
+                        marginTop: 4,
+                        opacity: task.completed ? 0.5 : 0.8,
+                      }}>
+                        {task.notes}
+                      </Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+
+                {/* Edit/Delete Buttons */}
+                <View style={{ flexDirection: 'row', gap: 8, marginLeft: 8 }}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setEditingTask(task);
+                      setShowAddTaskModal(true);
+                    }}
+                    style={{
+                      padding: 8,
+                      borderRadius: 6,
+                    }}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Text style={{ fontSize: 18, color: colors.primary }}>✎</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => handleDeleteTask(task)}
+                    style={{
+                      padding: 8,
+                      borderRadius: 6,
+                    }}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Text style={{ fontSize: 18, color: colors.error || '#ff4444' }}>🗑</Text>
+                  </TouchableOpacity>
                 </View>
-              </TouchableOpacity>
+              </View>
             ))}
 
             {/* Add Task Button */}
