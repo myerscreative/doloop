@@ -126,6 +126,9 @@ export default function Home() {
       isRecurring: true,
     }));
     
+    // Get today's date as ISO string
+    const today = new Date().toISOString().split('T')[0];
+    
     // Create the new loop object
     const newLoop: Loop = {
       id: loopId,
@@ -141,6 +144,8 @@ export default function Home() {
       completionHistory: [],
       createdAt: new Date(),
       updatedAt: new Date(),
+      reset_rule: loopType === 'daily' ? 'daily' : 'manual',
+      last_reset: today,
       items: loopItems,
       isFavorite: false,
     };

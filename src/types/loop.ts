@@ -6,6 +6,8 @@ export type LoopType = 'daily' | 'work' | 'personal';
 
 export type LoopStatus = 'active' | 'paused' | 'archived';
 
+export type ResetRule = 'daily' | 'weekly' | 'manual';
+
 export interface Loop {
   id: string;
   title: string;
@@ -21,6 +23,10 @@ export interface Loop {
   createdAt: Date;
   updatedAt: Date;
   lastCompletedAt?: Date;
+  
+  // Auto-reloop tracking
+  reset_rule: ResetRule;
+  last_reset?: string; // ISO date string: "2025-11-06"
   
   // Momentum tracking
   currentStreak: number;

@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import Image from 'next/image';
 import Header from '@/components/layout/Header';
 import { Loop, LoopItem, LOOP_LIBRARY_COLORS } from '@/types/loop';
-import { getLoopById, updateLoop, getAllLoops } from '@/lib/loopStorage';
+import { getLoopById, updateLoop, getAllLoops, getToday, getWeekStart } from '@/lib/loopStorage';
 import { reloop, resetLoop } from '@/lib/loopUtils';
 import { motion, AnimatePresence } from 'framer-motion';
 import LoopItemOptions from '@/components/loops/LoopItemOptions';
@@ -127,9 +127,15 @@ export default function LoopDetailPage() {
     // Use the new reloop function from loopUtils
     const reloopedLoop = reloop(loop);
     
+    // Update last_reset to today
+    const updatedLoop = {
+      ...reloopedLoop,
+      last_reset: getToday(),
+    };
+    
     // Update in localStorage
-    updateLoop(reloopedLoop);
-    setLoop(reloopedLoop);
+    updateLoop(updatedLoop);
+    setLoop(updatedLoop);
     showToast('Loop reset successfully!', 'success');
     setReloopDialog(false);
   };
@@ -230,16 +236,62 @@ export default function LoopDetailPage() {
     showToast('Loop color updated!', 'success');
   };
 
+  // Auto-reset check based on reset_rule
+  const checkAndAutoReset = (loop: Loop): Loop => {
+    if (!loop.reset_rule || loop.reset_rule === 'manual') {
+      return loop;
+    }
+
+    const today = getToday();
+    const lastReset = loop.last_reset;
+
+    // If never reset, set last_reset to today
+    if (!lastReset) {
+      return {
+        ...loop,
+        last_reset: today,
+      };
+    }
+
+    let shouldReset = false;
+
+    if (loop.reset_rule === 'daily') {
+      // Reset if last_reset is not today
+      shouldReset = lastReset !== today;
+    } else if (loop.reset_rule === 'weekly') {
+      // Reset if last_reset is before the start of this week
+      const weekStart = getWeekStart();
+      shouldReset = lastReset < weekStart;
+    }
+
+    if (shouldReset) {
+      // Perform reloop and update last_reset
+      const reloopedLoop = reloop(loop);
+      const updatedLoop = {
+        ...reloopedLoop,
+        last_reset: today,
+      };
+      
+      // Save to storage
+      updateLoop(updatedLoop);
+      
+      return updatedLoop;
+    }
+
+    return loop;
+  };
+
   // Load loop data on mount - this is a valid pattern for localStorage access
   useEffect(() => {
     if (!loopId) return;
 
     // Get loop from storage
-    const foundLoop = getLoopById(loopId);
+    let foundLoop = getLoopById(loopId);
     const loops = getAllLoops();
 
-    // Batch state updates
+    // Check if auto-reset is needed
     if (foundLoop) {
+      foundLoop = checkAndAutoReset(foundLoop);
       setLoop(foundLoop);
     }
     setAllLoops(loops);
@@ -526,6 +578,29 @@ export default function LoopDetailPage() {
               )}
             </button>
           </div>
+
+          {/* Reset Info Badge */}
+          {loop.reset_rule && (
+            <div className="mb-6 p-3 bg-gray-50 rounded-xl text-sm text-gray-600 text-center">
+              {loop.reset_rule === 'daily' && (
+                <>Resets daily • Next: Tomorrow</>
+              )}
+              {loop.reset_rule === 'weekly' && (
+                <>Resets weekly (Monday) • Next: {(() => {
+                  const today = new Date();
+                  const dayOfWeek = today.getDay();
+                  const daysUntilMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
+                  const nextMonday = new Date(today);
+                  nextMonday.setDate(today.getDate() + daysUntilMonday);
+                  return nextMonday.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+                })()}</>
+              )}
+              {loop.reset_rule === 'manual' && (
+                <>Manual reloop only</>
+              )}
+            </div>
+          )}
+
           {loop.items && loop.items.length > 0 ? (
             <>
               <div className="divide-y divide-gray-200">

@@ -12,6 +12,8 @@ export const mockLoops: Loop[] = [
     createdAt: new Date('2025-10-15'),
     updatedAt: new Date('2025-10-30'),
     lastCompletedAt: new Date('2025-10-30'),
+    reset_rule: 'daily',
+    last_reset: '2025-11-06',
     currentStreak: 12,
     longestStreak: 21,
     completionHistory: [
@@ -31,6 +33,8 @@ export const mockLoops: Loop[] = [
     createdAt: new Date('2025-10-20'),
     updatedAt: new Date('2025-10-30'),
     lastCompletedAt: new Date('2025-10-30'),
+    reset_rule: 'daily',
+    last_reset: '2025-11-06',
     currentStreak: 5,
     longestStreak: 10,
     completionHistory: [
@@ -49,6 +53,8 @@ export const mockLoops: Loop[] = [
     createdAt: new Date('2025-10-01'),
     updatedAt: new Date('2025-10-30'),
     lastCompletedAt: new Date('2025-10-30'),
+    reset_rule: 'weekly',
+    last_reset: '2025-11-04',
     currentStreak: 8,
     longestStreak: 15,
     completionHistory: [
@@ -67,6 +73,8 @@ export const mockLoops: Loop[] = [
     createdAt: new Date('2025-10-28'),
     updatedAt: new Date('2025-10-30'),
     lastCompletedAt: new Date('2025-10-30'),
+    reset_rule: 'daily',
+    last_reset: '2025-11-06',
     currentStreak: 3,
     longestStreak: 3,
     completionHistory: [
@@ -83,6 +91,8 @@ export const mockLoops: Loop[] = [
     completedTasks: 0,
     createdAt: new Date('2025-10-15'),
     updatedAt: new Date('2025-10-29'),
+    reset_rule: 'daily',
+    last_reset: '2025-11-06',
     currentStreak: 0,
     longestStreak: 7,
     completionHistory: [
@@ -101,6 +111,7 @@ export const mockLoops: Loop[] = [
     createdAt: new Date('2025-10-01'),
     updatedAt: new Date('2025-10-30'),
     lastCompletedAt: new Date('2025-10-30'),
+    reset_rule: 'manual',
     currentStreak: 18,
     longestStreak: 25,
     completionHistory: [

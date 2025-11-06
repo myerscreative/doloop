@@ -92,6 +92,7 @@ function CreateLoopPageContent() {
         currentStreak: 0,
         longestStreak: 0,
         completionHistory: [],
+        reset_rule: loopType === 'daily' ? 'daily' : 'manual',
         isFavorite: isFavorite,
         color: selectedColor,
         items: items.map((item, index) => ({
