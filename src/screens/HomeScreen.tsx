@@ -20,6 +20,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { Folder, LoopType, FOLDER_ICONS, FOLDER_COLORS } from '../types/loop';
+import { AILoopCreator } from '../components/AILoopCreator';
 
 type HomeScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
@@ -32,6 +33,8 @@ export const HomeScreen: React.FC = () => {
   const [currentDate, setCurrentDate] = useState('');
   const [totalStreak, setTotalStreak] = useState(0);
   const [modalVisible, setModalVisible] = useState(false);
+  const [aiModalVisible, setAiModalVisible] = useState(false);
+  const [choiceModalVisible, setChoiceModalVisible] = useState(false);
   const [newLoopName, setNewLoopName] = useState('');
   const [selectedLoopType, setSelectedLoopType] = useState<LoopType>('personal');
   const [creating, setCreating] = useState(false);
@@ -156,7 +159,7 @@ export const HomeScreen: React.FC = () => {
       setNewLoopName('');
       setSelectedLoopType('personal');
       await loadData();
-      
+
       // Navigate to the newly created loop
       if (data) {
         navigation.navigate('LoopDetail', { loopId: data.id });
@@ -167,6 +170,11 @@ export const HomeScreen: React.FC = () => {
     } finally {
       setCreating(false);
     }
+  };
+
+  const handleAILoopCreated = async (loopId: string, loopName: string) => {
+    await loadData();
+    navigation.navigate('LoopDetail', { loopId });
   };
 
   // Show loading screen while checking auth
@@ -338,10 +346,168 @@ export const HomeScreen: React.FC = () => {
           shadowOpacity: 0.25,
           shadowRadius: 4,
         }}
-        onPress={() => setModalVisible(true)}
+        onPress={() => setChoiceModalVisible(true)}
       >
         <Text style={{ fontSize: 24, color: 'white', fontWeight: 'bold' }}>+</Text>
       </TouchableOpacity>
+
+      {/* Choice Modal - Manual or AI */}
+      <Modal
+        visible={choiceModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setChoiceModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            justifyContent: 'center',
+            padding: 20,
+          }}
+          activeOpacity={1}
+          onPress={() => setChoiceModalVisible(false)}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={() => {}}
+            style={{
+              backgroundColor: colors.surface,
+              borderRadius: 12,
+              padding: 20,
+              maxWidth: 400,
+              alignSelf: 'center',
+              width: '100%',
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 20,
+                fontWeight: 'bold',
+                color: colors.text,
+                marginBottom: 8,
+              }}
+            >
+              Create New Loop
+            </Text>
+            <Text
+              style={{
+                fontSize: 14,
+                color: colors.textSecondary,
+                marginBottom: 20,
+              }}
+            >
+              Choose how you'd like to create your loop
+            </Text>
+
+            {/* AI Option */}
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: '#f0f9ff',
+                borderWidth: 2,
+                borderColor: '#0CB6CC',
+                borderRadius: 12,
+                padding: 16,
+                marginBottom: 12,
+              }}
+              onPress={() => {
+                setChoiceModalVisible(false);
+                setAiModalVisible(true);
+              }}
+            >
+              <View
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 24,
+                  backgroundColor: '#0CB6CC',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 16,
+                }}
+              >
+                <Text style={{ fontSize: 24 }}>✨</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{
+                    fontSize: 16,
+                    fontWeight: '600',
+                    color: colors.text,
+                    marginBottom: 4,
+                  }}
+                >
+                  AI-Powered Creation
+                </Text>
+                <Text style={{ fontSize: 14, color: colors.textSecondary }}>
+                  Describe your loop and let AI generate tasks
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Manual Option */}
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: colors.background,
+                borderWidth: 1,
+                borderColor: colors.border,
+                borderRadius: 12,
+                padding: 16,
+                marginBottom: 16,
+              }}
+              onPress={() => {
+                setChoiceModalVisible(false);
+                setModalVisible(true);
+              }}
+            >
+              <View
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 24,
+                  backgroundColor: colors.primary,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 16,
+                }}
+              >
+                <Text style={{ fontSize: 24 }}>✏️</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{
+                    fontSize: 16,
+                    fontWeight: '600',
+                    color: colors.text,
+                    marginBottom: 4,
+                  }}
+                >
+                  Manual Creation
+                </Text>
+                <Text style={{ fontSize: 14, color: colors.textSecondary }}>
+                  Create and customize your loop manually
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{
+                padding: 12,
+                alignItems: 'center',
+              }}
+              onPress={() => setChoiceModalVisible(false)}
+            >
+              <Text style={{ color: colors.textSecondary, fontSize: 16 }}>
+                Cancel
+              </Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Create Loop Modal */}
       <Modal
@@ -464,6 +630,13 @@ export const HomeScreen: React.FC = () => {
           </TouchableOpacity>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* AI Loop Creator */}
+      <AILoopCreator
+        visible={aiModalVisible}
+        onClose={() => setAiModalVisible(false)}
+        onLoopCreated={handleAILoopCreated}
+      />
     </SafeAreaView>
   );
 };
