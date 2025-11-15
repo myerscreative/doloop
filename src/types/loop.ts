@@ -61,6 +61,60 @@ export interface LoopMember {
 }
 
 /**
+ * Loop Library / Template Types
+ */
+
+export interface TemplateCreator {
+  id: string;
+  name: string;
+  bio: string;
+  title?: string; // e.g., "Business Coach", "Author", "CEO"
+  photo_url?: string;
+  website_url?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LoopTemplate {
+  id: string;
+  creator_id: string;
+  title: string;
+  description: string;
+  book_course_title: string; // The book/course/training that inspired this loop
+  affiliate_link?: string;
+  color: string;
+  category: LoopType;
+  is_featured: boolean;
+  popularity_score: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TemplateTask {
+  id: string;
+  template_id: string;
+  description: string;
+  is_recurring: boolean;
+  is_one_time: boolean;
+  display_order: number;
+  created_at: string;
+}
+
+export interface UserTemplateUsage {
+  id: string;
+  user_id: string;
+  template_id: string;
+  loop_id?: string;
+  added_at: string;
+}
+
+export interface LoopTemplateWithDetails extends LoopTemplate {
+  creator: TemplateCreator;
+  tasks: TemplateTask[];
+  taskCount: number;
+}
+
+/**
  * UI-specific types and helpers
  */
 

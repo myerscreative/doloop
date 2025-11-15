@@ -1,102 +1,6 @@
--- =====================================================
--- DoLoop Complete Database Schema Migration
--- Run this in your Supabase SQL Editor
--- =====================================================
-
--- 1. Add loop_type column to loops table
-ALTER TABLE loops ADD COLUMN IF NOT EXISTS loop_type TEXT DEFAULT 'personal';
-ALTER TABLE loops ADD CONSTRAINT IF NOT EXISTS check_loop_type CHECK (loop_type IN ('personal', 'work', 'daily', 'shared'));
-CREATE INDEX IF NOT EXISTS idx_loops_loop_type ON loops(loop_type);
-
--- 1b. Add next_reset_at column to loops table for scheduled resets
-ALTER TABLE loops ADD COLUMN IF NOT EXISTS next_reset_at TIMESTAMP WITH TIME ZONE;
-UPDATE loops 
-SET next_reset_at = CASE 
-  WHEN reset_rule = 'daily' THEN NOW() + INTERVAL '1 day'
-  WHEN reset_rule = 'weekly' THEN NOW() + INTERVAL '7 days'
-  ELSE NULL
-END
-WHERE next_reset_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_loops_next_reset_at ON loops(next_reset_at);
-
--- 2. Add is_one_time column to tasks table
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS is_one_time BOOLEAN DEFAULT FALSE;
-UPDATE tasks SET is_one_time = FALSE WHERE is_one_time IS NULL;
-ALTER TABLE tasks ALTER COLUMN is_one_time SET NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_tasks_is_one_time ON tasks(is_one_time);
-
--- 3. Add archived_tasks table
-CREATE TABLE IF NOT EXISTS archived_tasks (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  original_task_id UUID NOT NULL,
-  loop_id UUID NOT NULL REFERENCES loops(id) ON DELETE CASCADE,
-  description TEXT NOT NULL,
-  completed_at TIMESTAMP WITH TIME ZONE NOT NULL,
-  archived_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- 4. Add user_streaks table (global user-level streak)
-CREATE TABLE IF NOT EXISTS user_streaks (
-  user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  current_streak INT DEFAULT 0 NOT NULL,
-  longest_streak INT DEFAULT 0 NOT NULL,
-  last_completed_date TIMESTAMP WITH TIME ZONE,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
-);
-
--- 5. Create indexes for performance
-CREATE INDEX IF NOT EXISTS idx_archived_tasks_loop_id ON archived_tasks(loop_id);
-CREATE INDEX IF NOT EXISTS idx_archived_tasks_completed_at ON archived_tasks(completed_at);
-CREATE INDEX IF NOT EXISTS idx_user_streaks_user_id ON user_streaks(user_id);
-
--- 6. Enable RLS
-ALTER TABLE archived_tasks ENABLE ROW LEVEL SECURITY;
-ALTER TABLE user_streaks ENABLE ROW LEVEL SECURITY;
-
--- 7. RLS Policies for archived_tasks
-DROP POLICY IF EXISTS "Users can view archived tasks from their loops" ON archived_tasks;
-CREATE POLICY "Users can view archived tasks from their loops" ON archived_tasks
-  FOR SELECT USING (
-    loop_id IN (
-      SELECT id FROM loops WHERE owner_id = auth.uid()
-      UNION
-      SELECT loop_id FROM loop_members WHERE user_id = auth.uid()
-    )
-  );
-
-DROP POLICY IF EXISTS "Users can insert archived tasks for their loops" ON archived_tasks;
-CREATE POLICY "Users can insert archived tasks for their loops" ON archived_tasks
-  FOR INSERT WITH CHECK (
-    loop_id IN (
-      SELECT id FROM loops WHERE owner_id = auth.uid()
-      UNION
-      SELECT loop_id FROM loop_members WHERE user_id = auth.uid()
-    )
-  );
-
--- 8. RLS Policies for user_streaks (global streak)
-DROP POLICY IF EXISTS "Users can view own streak" ON user_streaks;
-CREATE POLICY "Users can view own streak" ON user_streaks
-  FOR SELECT USING (auth.uid() = user_id);
-
-DROP POLICY IF EXISTS "Users can update own streak" ON user_streaks;
-CREATE POLICY "Users can update own streak" ON user_streaks
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-
-DROP POLICY IF EXISTS "Users can modify own streak" ON user_streaks;
-CREATE POLICY "Users can modify own streak" ON user_streaks
-  FOR UPDATE USING (auth.uid() = user_id);
-
--- 9. Initialize streaks for existing users
-INSERT INTO user_streaks (user_id, current_streak, longest_streak, last_completed_date, updated_at)
-SELECT DISTINCT id, 0, 0, NULL, NOW()
-FROM auth.users
-ON CONFLICT (user_id) DO NOTHING;
-
--- =====================================================
--- 10. Loop Library Feature (2025-11-15)
--- =====================================================
+-- Migration: Add Loop Library Feature
+-- Description: Add support for loop templates with creator information and affiliate links
+-- Date: 2025-11-15
 
 -- Table: template_creators
 -- Stores information about teachers, coaches, and business leaders
@@ -104,7 +8,7 @@ CREATE TABLE IF NOT EXISTS template_creators (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name VARCHAR(255) NOT NULL,
   bio TEXT NOT NULL,
-  title VARCHAR(255),
+  title VARCHAR(255), -- e.g., "Business Coach", "Author", "CEO"
   photo_url TEXT,
   website_url TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -118,12 +22,12 @@ CREATE TABLE IF NOT EXISTS loop_templates (
   creator_id UUID NOT NULL REFERENCES template_creators(id) ON DELETE CASCADE,
   title VARCHAR(255) NOT NULL,
   description TEXT NOT NULL,
-  book_course_title VARCHAR(255) NOT NULL,
-  affiliate_link TEXT,
-  color VARCHAR(7) DEFAULT '#667eea',
-  category VARCHAR(50) DEFAULT 'personal',
+  book_course_title VARCHAR(255) NOT NULL, -- The book/course/training that inspired this loop
+  affiliate_link TEXT, -- Affiliate link to purchase the material
+  color VARCHAR(7) DEFAULT '#667eea', -- Hex color for the loop
+  category VARCHAR(50) DEFAULT 'personal', -- personal, work, daily, shared
   is_featured BOOLEAN DEFAULT FALSE,
-  popularity_score INTEGER DEFAULT 0,
+  popularity_score INTEGER DEFAULT 0, -- For sorting by popularity
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -136,7 +40,7 @@ CREATE TABLE IF NOT EXISTS template_tasks (
   description TEXT NOT NULL,
   is_recurring BOOLEAN DEFAULT TRUE,
   is_one_time BOOLEAN DEFAULT FALSE,
-  display_order INTEGER DEFAULT 0,
+  display_order INTEGER DEFAULT 0, -- Order in which tasks should be displayed
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -146,18 +50,18 @@ CREATE TABLE IF NOT EXISTS user_template_usage (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   template_id UUID NOT NULL REFERENCES loop_templates(id) ON DELETE CASCADE,
-  loop_id UUID REFERENCES loops(id) ON DELETE SET NULL,
+  loop_id UUID REFERENCES loops(id) ON DELETE SET NULL, -- The loop created from this template
   added_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE(user_id, template_id, loop_id)
 );
 
 -- Create indexes for better query performance
-CREATE INDEX IF NOT EXISTS idx_loop_templates_creator ON loop_templates(creator_id);
-CREATE INDEX IF NOT EXISTS idx_loop_templates_category ON loop_templates(category);
-CREATE INDEX IF NOT EXISTS idx_loop_templates_featured ON loop_templates(is_featured);
-CREATE INDEX IF NOT EXISTS idx_template_tasks_template ON template_tasks(template_id);
-CREATE INDEX IF NOT EXISTS idx_user_template_usage_user ON user_template_usage(user_id);
-CREATE INDEX IF NOT EXISTS idx_user_template_usage_template ON user_template_usage(template_id);
+CREATE INDEX idx_loop_templates_creator ON loop_templates(creator_id);
+CREATE INDEX idx_loop_templates_category ON loop_templates(category);
+CREATE INDEX idx_loop_templates_featured ON loop_templates(is_featured);
+CREATE INDEX idx_template_tasks_template ON template_tasks(template_id);
+CREATE INDEX idx_user_template_usage_user ON user_template_usage(user_id);
+CREATE INDEX idx_user_template_usage_template ON user_template_usage(template_id);
 
 -- Enable Row Level Security
 ALTER TABLE template_creators ENABLE ROW LEVEL SECURITY;
@@ -166,28 +70,23 @@ ALTER TABLE template_tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_template_usage ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies: Everyone can read templates and creators (public library)
-DROP POLICY IF EXISTS "Anyone can view template creators" ON template_creators;
 CREATE POLICY "Anyone can view template creators"
   ON template_creators FOR SELECT
   USING (true);
 
-DROP POLICY IF EXISTS "Anyone can view loop templates" ON loop_templates;
 CREATE POLICY "Anyone can view loop templates"
   ON loop_templates FOR SELECT
   USING (true);
 
-DROP POLICY IF EXISTS "Anyone can view template tasks" ON template_tasks;
 CREATE POLICY "Anyone can view template tasks"
   ON template_tasks FOR SELECT
   USING (true);
 
 -- RLS Policies: Only authenticated users can track their template usage
-DROP POLICY IF EXISTS "Users can view their own template usage" ON user_template_usage;
 CREATE POLICY "Users can view their own template usage"
   ON user_template_usage FOR SELECT
   USING (auth.uid() = user_id);
 
-DROP POLICY IF EXISTS "Users can insert their own template usage" ON user_template_usage;
 CREATE POLICY "Users can insert their own template usage"
   ON user_template_usage FOR INSERT
   WITH CHECK (auth.uid() = user_id);
@@ -204,7 +103,6 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Trigger to increment popularity when template is added by a user
-DROP TRIGGER IF EXISTS on_template_usage ON user_template_usage;
 CREATE TRIGGER on_template_usage
   AFTER INSERT ON user_template_usage
   FOR EACH ROW
@@ -232,8 +130,7 @@ INSERT INTO template_creators (id, name, bio, title, photo_url) VALUES
     'Tim Ferriss is an entrepreneur, author, and podcaster. He has written several #1 New York Times bestsellers including "The 4-Hour Workweek" and hosts one of the world''s most popular podcasts, The Tim Ferriss Show.',
     'Entrepreneur & Author',
     'https://tim.blog/wp-content/uploads/2020/01/tim-ferriss-high-res.jpg'
-  )
-ON CONFLICT (id) DO NOTHING;
+  );
 
 -- Insert sample loop templates
 INSERT INTO loop_templates (id, creator_id, title, description, book_course_title, affiliate_link, color, category, is_featured) VALUES
@@ -269,8 +166,7 @@ INSERT INTO loop_templates (id, creator_id, title, description, book_course_titl
     '#FEC041',
     'personal',
     true
-  )
-ON CONFLICT (id) DO NOTHING;
+  );
 
 -- Insert sample tasks for templates
 INSERT INTO template_tasks (template_id, description, is_recurring, display_order) VALUES
@@ -296,10 +192,4 @@ INSERT INTO template_tasks (template_id, description, is_recurring, display_orde
   ('10000000-0000-0000-0000-000000000003', 'Morning pages - 3 pages of journaling', true, 3),
   ('10000000-0000-0000-0000-000000000003', '10-minute workout or stretching', true, 4),
   ('10000000-0000-0000-0000-000000000003', 'Healthy breakfast and hydration', true, 5),
-  ('10000000-0000-0000-0000-000000000003', 'Review top 3 priorities for the day', true, 6)
-ON CONFLICT DO NOTHING;
-
--- =====================================================
--- Migration Complete!
--- =====================================================
-
+  ('10000000-0000-0000-0000-000000000003', 'Review top 3 priorities for the day', true, 6);

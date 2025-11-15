@@ -304,6 +304,57 @@ export const HomeScreen: React.FC = () => {
               </Text>
             </View>
           )}
+
+          {/* Loop Library Section */}
+          <View style={{ marginTop: 32 }}>
+            <Text style={{
+              fontSize: 18,
+              fontWeight: 'bold',
+              color: colors.text,
+              marginBottom: 16,
+            }}>
+              Discover Loops
+            </Text>
+
+            <TouchableOpacity
+              style={{
+                backgroundColor: '#667eea',
+                padding: 20,
+                borderRadius: 16,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.2,
+                shadowRadius: 8,
+                elevation: 4,
+              }}
+              onPress={() => navigation.navigate('TemplateLibrary')}
+            >
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                marginBottom: 8,
+              }}>
+                <Text style={{ fontSize: 28, marginRight: 12 }}>📚</Text>
+                <Text style={{
+                  fontSize: 20,
+                  fontWeight: 'bold',
+                  color: '#fff',
+                  flex: 1,
+                }}>
+                  Loop Library
+                </Text>
+                <Text style={{ fontSize: 20, color: '#fff' }}>→</Text>
+              </View>
+              <Text style={{
+                fontSize: 14,
+                color: '#fff',
+                opacity: 0.9,
+                lineHeight: 20,
+              }}>
+                Explore loops inspired by top teachers, coaches, and business leaders
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
 
