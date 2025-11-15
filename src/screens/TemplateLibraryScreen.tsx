@@ -10,7 +10,10 @@ import {
   Platform,
   Share,
   Alert,
+  Image,
+  Animated,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../App';
 import { supabase } from '../lib/supabase';
@@ -27,6 +30,46 @@ interface Props {
 }
 
 type TabType = 'browse' | 'mylibrary' | 'favorites';
+
+// Skeleton loader component
+const SkeletonCard = () => {
+  const pulseAnim = React.useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 0,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
+
+  const opacity = pulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.3, 0.7],
+  });
+
+  return (
+    <View style={styles.templateCard}>
+      <Animated.View style={[styles.skeletonBar, { opacity }]} />
+      <View style={styles.cardContent}>
+        <Animated.View style={[styles.skeletonTitle, { opacity }]} />
+        <Animated.View style={[styles.skeletonText, { opacity, width: '60%', marginTop: 8 }]} />
+        <Animated.View style={[styles.skeletonText, { opacity, width: '40%', marginTop: 4 }]} />
+        <Animated.View style={[styles.skeletonText, { opacity, marginTop: 12 }]} />
+        <Animated.View style={[styles.skeletonText, { opacity, width: '80%' }]} />
+      </View>
+    </View>
+  );
+};
 
 export function TemplateLibraryScreen({ navigation }: Props) {
   const { user } = useAuth();
@@ -51,7 +94,6 @@ export function TemplateLibraryScreen({ navigation }: Props) {
     try {
       setLoading(true);
 
-      // Fetch templates with creator info and tasks
       const { data: templateData, error: templateError } = await supabase
         .from('loop_templates')
         .select(`
@@ -64,7 +106,6 @@ export function TemplateLibraryScreen({ navigation }: Props) {
 
       if (templateError) throw templateError;
 
-      // Fetch user's favorites
       const { data: favoritesData } = await supabase
         .from('template_favorites')
         .select('template_id')
@@ -72,7 +113,6 @@ export function TemplateLibraryScreen({ navigation }: Props) {
 
       const favoriteIds = new Set(favoritesData?.map(f => f.template_id) || []);
 
-      // Fetch user's added templates
       const { data: usageData } = await supabase
         .from('user_template_usage')
         .select('template_id')
@@ -80,7 +120,6 @@ export function TemplateLibraryScreen({ navigation }: Props) {
 
       const addedIds = new Set(usageData?.map(u => u.template_id) || []);
 
-      // Fetch user's ratings
       const { data: ratingsData } = await supabase
         .from('template_reviews')
         .select('template_id, rating')
@@ -88,7 +127,6 @@ export function TemplateLibraryScreen({ navigation }: Props) {
 
       const userRatings = new Map(ratingsData?.map(r => [r.template_id, r.rating]) || []);
 
-      // Transform data to match our interface
       const templatesWithDetails: LoopTemplateWithDetails[] = (templateData || []).map((template: any) => ({
         ...template,
         creator: Array.isArray(template.creator) ? template.creator[0] : template.creator,
@@ -113,19 +151,16 @@ export function TemplateLibraryScreen({ navigation }: Props) {
   const filterTemplates = () => {
     let filtered = [...templates];
 
-    // Filter by tab
     if (activeTab === 'mylibrary') {
       filtered = filtered.filter(t => t.isAdded);
     } else if (activeTab === 'favorites') {
       filtered = filtered.filter(t => t.isFavorite);
     }
 
-    // Filter by category
     if (selectedCategory) {
       filtered = filtered.filter(t => t.category === selectedCategory);
     }
 
-    // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -143,22 +178,24 @@ export function TemplateLibraryScreen({ navigation }: Props) {
   const toggleFavorite = async (templateId: string, currentlyFavorited: boolean) => {
     if (!user) return;
 
+    // Haptic feedback
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+
     try {
       if (currentlyFavorited) {
-        // Remove favorite
         await supabase
           .from('template_favorites')
           .delete()
           .eq('template_id', templateId)
           .eq('user_id', user.id);
       } else {
-        // Add favorite
         await supabase
           .from('template_favorites')
           .insert([{ template_id: templateId, user_id: user.id }]);
       }
 
-      // Refresh templates
       await fetchTemplates();
     } catch (error) {
       console.error('Error toggling favorite:', error);
@@ -167,6 +204,10 @@ export function TemplateLibraryScreen({ navigation }: Props) {
   };
 
   const shareTemplate = async (template: LoopTemplateWithDetails) => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+
     try {
       await Share.share({
         message: `Check out this loop template: "${template.title}" by ${template.creator.name}. Based on "${template.book_course_title}". Add it to your DoLoop app!`,
@@ -178,97 +219,156 @@ export function TemplateLibraryScreen({ navigation }: Props) {
   };
 
   const renderStars = (rating: number) => {
-    const stars = [];
-    for (let i = 1; i <= 5; i++) {
-      stars.push(
-        <Text key={i} style={styles.star}>
-          {i <= Math.round(rating) ? '⭐' : '☆'}
-        </Text>
-      );
-    }
-    return <View style={styles.starsContainer}>{stars}</View>;
+    return (
+      <View style={styles.starsContainer}>
+        {[1, 2, 3, 4, 5].map((star) => (
+          <Text key={star} style={styles.star}>
+            {star <= Math.round(rating) ? '★' : '☆'}
+          </Text>
+        ))}
+      </View>
+    );
   };
 
-  const renderTemplateCard = ({ item }: { item: LoopTemplateWithDetails }) => (
-    <TouchableOpacity
-      style={styles.templateCard}
-      onPress={() => navigation.navigate('TemplateDetail', { templateId: item.id })}
-      activeOpacity={0.7}
-    >
-      {/* Featured Badge */}
-      {item.is_featured && (
-        <View style={styles.featuredBadge}>
-          <Text style={styles.featuredText}>⭐ FEATURED</Text>
-        </View>
-      )}
+  const TemplateCard = ({ item }: { item: LoopTemplateWithDetails }) => {
+    const scaleAnim = React.useRef(new Animated.Value(1)).current;
+    const favoriteScale = React.useRef(new Animated.Value(1)).current;
 
-      {/* Favorite Button */}
-      <TouchableOpacity
-        style={styles.favoriteButton}
-        onPress={(e) => {
-          e.stopPropagation();
-          toggleFavorite(item.id, item.isFavorite || false);
-        }}
-      >
-        <Text style={styles.favoriteIcon}>{item.isFavorite ? '❤️' : '🤍'}</Text>
-      </TouchableOpacity>
+    const handlePressIn = () => {
+      Animated.spring(scaleAnim, {
+        toValue: 0.98,
+        useNativeDriver: true,
+      }).start();
+    };
 
-      {/* Template Color Bar */}
-      <View style={[styles.colorBar, { backgroundColor: item.color }]} />
+    const handlePressOut = () => {
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+      }).start();
+    };
 
-      {/* Content */}
-      <View style={styles.cardContent}>
-        <Text style={styles.templateTitle}>{item.title}</Text>
-        <Text style={styles.creatorName}>by {item.creator.name}</Text>
-        <Text style={styles.bookTitle}>{item.book_course_title}</Text>
+    const animateFavorite = () => {
+      Animated.sequence([
+        Animated.timing(favoriteScale, {
+          toValue: 1.3,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+        Animated.timing(favoriteScale, {
+          toValue: 1,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    };
 
-        {/* Rating */}
-        {item.review_count > 0 && (
-          <View style={styles.ratingRow}>
-            {renderStars(item.average_rating)}
-            <Text style={styles.ratingText}>
-              {item.average_rating.toFixed(1)} ({item.review_count} reviews)
-            </Text>
-          </View>
-        )}
-
-        <Text style={styles.description} numberOfLines={2}>
-          {item.description}
-        </Text>
-
-        {/* Stats */}
-        <View style={styles.statsRow}>
-          <View style={styles.stat}>
-            <Text style={styles.statValue}>{item.taskCount}</Text>
-            <Text style={styles.statLabel}>tasks</Text>
-          </View>
-          <View style={styles.stat}>
-            <Text style={styles.statValue}>{item.popularity_score}</Text>
-            <Text style={styles.statLabel}>uses</Text>
-          </View>
-          {item.isAdded && (
-            <View style={styles.addedBadge}>
-              <Text style={styles.addedText}>✓ Added</Text>
-            </View>
-          )}
-          <View style={styles.categoryBadge}>
-            <Text style={styles.categoryText}>{getCategoryIcon(item.category)} {item.category}</Text>
-          </View>
-        </View>
-
-        {/* Share Button */}
+    return (
+      <Animated.View style={[{ transform: [{ scale: scaleAnim }] }]}>
         <TouchableOpacity
-          style={styles.shareButton}
-          onPress={(e) => {
-            e.stopPropagation();
-            shareTemplate(item);
+          style={styles.templateCard}
+          onPress={() => {
+            if (Platform.OS !== 'web') {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }
+            navigation.navigate('TemplateDetail', { templateId: item.id });
           }}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          activeOpacity={1}
         >
-          <Text style={styles.shareButtonText}>📤 Share</Text>
+          {/* Color accent bar */}
+          <View style={[styles.colorAccent, { backgroundColor: item.color }]} />
+
+          <View style={styles.cardContentNew}>
+            {/* Header with Creator Avatar & Favorite */}
+            <View style={styles.cardHeader}>
+              <View style={styles.creatorRow}>
+                {item.creator.photo_url ? (
+                  <Image
+                    source={{ uri: item.creator.photo_url }}
+                    style={styles.creatorAvatar}
+                  />
+                ) : (
+                  <View style={[styles.creatorAvatar, styles.creatorAvatarPlaceholder]}>
+                    <Text style={styles.creatorInitial}>
+                      {item.creator.name.charAt(0)}
+                    </Text>
+                  </View>
+                )}
+                <View style={styles.creatorInfo}>
+                  <Text style={styles.creatorNameNew}>{item.creator.name}</Text>
+                  <Text style={styles.bookTitleNew}>{item.book_course_title}</Text>
+                </View>
+              </View>
+
+              <Animated.View style={{ transform: [{ scale: favoriteScale }] }}>
+                <TouchableOpacity
+                  style={styles.favoriteButtonNew}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    animateFavorite();
+                    toggleFavorite(item.id, item.isFavorite || false);
+                  }}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Text style={styles.favoriteIconNew}>
+                    {item.isFavorite ? '❤️' : '🤍'}
+                  </Text>
+                </TouchableOpacity>
+              </Animated.View>
+            </View>
+
+            {/* Title */}
+            <Text style={styles.templateTitleNew}>{item.title}</Text>
+
+            {/* Rating - Only show if has reviews */}
+            {item.review_count > 0 && (
+              <View style={styles.ratingRowNew}>
+                {renderStars(item.average_rating)}
+                <Text style={styles.ratingTextNew}>
+                  {item.average_rating.toFixed(1)}
+                </Text>
+                <Text style={styles.reviewCount}>({item.review_count})</Text>
+              </View>
+            )}
+
+            {/* Description */}
+            <Text style={styles.descriptionNew} numberOfLines={2}>
+              {item.description}
+            </Text>
+
+            {/* Footer with Stats & Badges */}
+            <View style={styles.cardFooter}>
+              <View style={styles.statsRowNew}>
+                <View style={styles.statBadge}>
+                  <Text style={styles.statIcon}>📋</Text>
+                  <Text style={styles.statText}>{item.taskCount}</Text>
+                </View>
+                <View style={styles.statBadge}>
+                  <Text style={styles.statIcon}>👥</Text>
+                  <Text style={styles.statText}>{item.popularity_score}</Text>
+                </View>
+              </View>
+
+              <View style={styles.badgesRow}>
+                {item.is_featured && (
+                  <View style={styles.featuredBadgeNew}>
+                    <Text style={styles.badgeText}>FEATURED</Text>
+                  </View>
+                )}
+                {item.isAdded && (
+                  <View style={styles.addedBadgeNew}>
+                    <Text style={styles.badgeTextAdded}>✓ ADDED</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          </View>
         </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
-  );
+      </Animated.View>
+    );
+  };
 
   const getCategoryIcon = (category: string) => {
     const icons: Record<string, string> = {
@@ -294,19 +394,32 @@ export function TemplateLibraryScreen({ navigation }: Props) {
     { id: 'favorites' as TabType, label: 'Favorites', icon: '❤️' },
   ];
 
+  const handleTabPress = (tabId: TabType) => {
+    if (Platform.OS !== 'web') {
+      Haptics.selectionAsync();
+    }
+    setActiveTab(tabId);
+  };
+
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => navigation.goBack()}
+          onPress={() => {
+            if (Platform.OS !== 'web') {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }
+            navigation.goBack();
+          }}
           style={styles.backButton}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
         <View style={styles.headerTextContainer}>
           <Text style={styles.headerTitle}>Loop Library</Text>
-          <Text style={styles.headerSubtitle}>Loops inspired by the best</Text>
+          <Text style={styles.headerSubtitle}>Discover loops from the best</Text>
         </View>
       </View>
 
@@ -319,13 +432,19 @@ export function TemplateLibraryScreen({ navigation }: Props) {
               styles.tab,
               activeTab === tab.id && styles.tabActive,
             ]}
-            onPress={() => setActiveTab(tab.id)}
+            onPress={() => handleTabPress(tab.id)}
           >
             <Text style={[
               styles.tabText,
               activeTab === tab.id && styles.tabTextActive,
             ]}>
-              {tab.icon} {tab.label}
+              {tab.icon}
+            </Text>
+            <Text style={[
+              styles.tabLabel,
+              activeTab === tab.id && styles.tabLabelActive,
+            ]}>
+              {tab.label}
             </Text>
           </TouchableOpacity>
         ))}
@@ -333,13 +452,16 @@ export function TemplateLibraryScreen({ navigation }: Props) {
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search templates, creators, books..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholderTextColor="#999"
-        />
+        <View style={styles.searchWrapper}>
+          <Text style={styles.searchIcon}>🔍</Text>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search templates, creators, books..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholderTextColor="#999"
+          />
+        </View>
       </View>
 
       {/* Category Filter */}
@@ -352,18 +474,24 @@ export function TemplateLibraryScreen({ navigation }: Props) {
           renderItem={({ item }) => (
             <TouchableOpacity
               style={[
-                styles.categoryButton,
-                selectedCategory === item.id && styles.categoryButtonActive,
+                styles.categoryChip,
+                selectedCategory === item.id && styles.categoryChipActive,
               ]}
-              onPress={() => setSelectedCategory(item.id)}
+              onPress={() => {
+                if (Platform.OS !== 'web') {
+                  Haptics.selectionAsync();
+                }
+                setSelectedCategory(item.id);
+              }}
             >
+              <Text style={styles.categoryChipIcon}>{item.icon}</Text>
               <Text
                 style={[
-                  styles.categoryButtonText,
-                  selectedCategory === item.id && styles.categoryButtonTextActive,
+                  styles.categoryChipText,
+                  selectedCategory === item.id && styles.categoryChipTextActive,
                 ]}
               >
-                {item.icon} {item.label}
+                {item.label}
               </Text>
             </TouchableOpacity>
           )}
@@ -372,18 +500,17 @@ export function TemplateLibraryScreen({ navigation }: Props) {
 
       {/* Templates List */}
       {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#667eea" />
-          <Text style={styles.loadingText}>Loading templates...</Text>
+        <View style={styles.listContent}>
+          {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
         </View>
       ) : filteredTemplates.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyIcon}>
-            {activeTab === 'mylibrary' ? '📖' : activeTab === 'favorites' ? '❤️' : '📚'}
+            {activeTab === 'mylibrary' ? '📖' : activeTab === 'favorites' ? '💜' : '🔍'}
           </Text>
           <Text style={styles.emptyText}>
             {activeTab === 'mylibrary'
-              ? 'No templates added yet'
+              ? 'No templates yet'
               : activeTab === 'favorites'
               ? 'No favorites yet'
               : 'No templates found'}
@@ -392,7 +519,7 @@ export function TemplateLibraryScreen({ navigation }: Props) {
             {activeTab === 'mylibrary'
               ? 'Browse templates and add them to your library'
               : activeTab === 'favorites'
-              ? 'Tap the heart icon to favorite templates'
+              ? 'Tap the heart to save your favorites'
               : searchQuery
               ? 'Try a different search term'
               : 'Check back soon for new templates'}
@@ -401,7 +528,7 @@ export function TemplateLibraryScreen({ navigation }: Props) {
       ) : (
         <FlatList
           data={filteredTemplates}
-          renderItem={renderTemplateCard}
+          renderItem={({ item }) => <TemplateCard item={item} />}
           keyExtractor={item => item.id}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
@@ -414,279 +541,317 @@ export function TemplateLibraryScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#F8F9FB',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingTop: Platform.OS === 'ios' ? 60 : 20,
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: 16,
     backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
+    marginRight: 8,
   },
   backButtonText: {
-    fontSize: 28,
-    color: '#333',
+    fontSize: 32,
+    color: '#1A1A1A',
+    fontWeight: '300',
   },
   headerTextContainer: {
     flex: 1,
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#333',
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    letterSpacing: -0.5,
   },
   headerSubtitle: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: 15,
+    color: '#6B7280',
     marginTop: 2,
+    fontWeight: '400',
   },
   tabsContainer: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    gap: 8,
   },
   tab: {
     flex: 1,
     paddingVertical: 12,
     alignItems: 'center',
-    borderBottomWidth: 2,
+    borderBottomWidth: 3,
     borderBottomColor: 'transparent',
+    gap: 4,
   },
   tabActive: {
     borderBottomColor: '#667eea',
   },
   tabText: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: 20,
+  },
+  tabLabel: {
+    fontSize: 12,
+    color: '#6B7280',
     fontWeight: '600',
   },
-  tabTextActive: {
+  tabLabelActive: {
     color: '#667eea',
   },
   searchContainer: {
-    padding: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     backgroundColor: '#fff',
   },
-  searchInput: {
-    height: 44,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 12,
+  searchWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 16,
     paddingHorizontal: 16,
+    height: 50,
+  },
+  searchIcon: {
+    fontSize: 18,
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
     fontSize: 16,
-    color: '#333',
+    color: '#1A1A1A',
   },
   categoryContainer: {
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: '#F3F4F6',
   },
-  categoryButton: {
+  categoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#f5f5f5',
+    paddingVertical: 10,
+    borderRadius: 24,
+    backgroundColor: '#F3F4F6',
     marginRight: 8,
+    gap: 6,
   },
-  categoryButtonActive: {
+  categoryChipActive: {
     backgroundColor: '#667eea',
   },
-  categoryButtonText: {
+  categoryChipIcon: {
+    fontSize: 16,
+  },
+  categoryChipText: {
     fontSize: 14,
-    color: '#666',
+    color: '#4B5563',
     fontWeight: '600',
   },
-  categoryButtonTextActive: {
+  categoryChipTextActive: {
     color: '#fff',
   },
   listContent: {
-    padding: 16,
+    padding: 20,
+    gap: 16,
   },
   templateCard: {
     backgroundColor: '#fff',
-    borderRadius: 16,
-    marginBottom: 16,
+    borderRadius: 20,
     overflow: 'hidden',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
       },
       android: {
-        elevation: 4,
+        elevation: 3,
       },
       web: {
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
       } as any,
     }),
   },
-  featuredBadge: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    backgroundColor: '#FFD700',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-    zIndex: 1,
-  },
-  featuredText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  favoriteButton: {
-    position: 'absolute',
-    top: 12,
-    left: 12,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#fff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
-  },
-  favoriteIcon: {
-    fontSize: 20,
-  },
-  colorBar: {
-    height: 6,
+  colorAccent: {
+    height: 4,
     width: '100%',
   },
-  cardContent: {
+  cardContentNew: {
     padding: 20,
   },
-  templateTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
   },
-  creatorName: {
-    fontSize: 14,
-    color: '#667eea',
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  bookTitle: {
-    fontSize: 13,
-    color: '#999',
-    fontStyle: 'italic',
-    marginBottom: 8,
-  },
-  ratingRow: {
+  creatorRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    gap: 12,
+    flex: 1,
+  },
+  creatorAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E5E7EB',
+  },
+  creatorAvatarPlaceholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#667eea',
+  },
+  creatorInitial: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  creatorInfo: {
+    flex: 1,
+  },
+  creatorNameNew: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    marginBottom: 2,
+  },
+  bookTitleNew: {
+    fontSize: 13,
+    color: '#667eea',
+    fontWeight: '500',
+  },
+  favoriteButtonNew: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  favoriteIconNew: {
+    fontSize: 24,
+  },
+  templateTitleNew: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    marginBottom: 12,
+    lineHeight: 26,
+    letterSpacing: -0.3,
+  },
+  ratingRowNew: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 6,
   },
   starsContainer: {
     flexDirection: 'row',
-    marginRight: 8,
   },
   star: {
-    fontSize: 12,
-    marginRight: 2,
-  },
-  ratingText: {
-    fontSize: 12,
-    color: '#666',
-  },
-  description: {
     fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
+    color: '#FCD34D',
+    marginRight: 1,
+  },
+  ratingTextNew: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1A1A1A',
+  },
+  reviewCount: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    fontWeight: '500',
+  },
+  descriptionNew: {
+    fontSize: 15,
+    color: '#6B7280',
+    lineHeight: 22,
     marginBottom: 16,
   },
-  statsRow: {
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  statsRowNew: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  statBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    marginBottom: 12,
-  },
-  stat: {
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#999',
-  },
-  addedBadge: {
-    backgroundColor: '#4CAF50',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  addedText: {
-    fontSize: 11,
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  categoryBadge: {
-    marginLeft: 'auto',
-    backgroundColor: '#f5f5f5',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  categoryText: {
-    fontSize: 12,
-    color: '#666',
-    textTransform: 'capitalize',
-  },
-  shareButton: {
-    alignSelf: 'flex-start',
+    backgroundColor: '#F9FAFB',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#667eea',
+    borderRadius: 12,
+    gap: 4,
   },
-  shareButtonText: {
-    fontSize: 12,
-    color: '#667eea',
+  statIcon: {
+    fontSize: 14,
+  },
+  statText: {
+    fontSize: 14,
     fontWeight: '600',
+    color: '#4B5563',
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+  badgesRow: {
+    flexDirection: 'row',
+    gap: 8,
   },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#666',
+  featuredBadgeNew: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  addedBadgeNew: {
+    backgroundColor: '#D1FAE5',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#92400E',
+    letterSpacing: 0.5,
+  },
+  badgeTextAdded: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#065F46',
+    letterSpacing: 0.5,
+  },
+  // Skeleton styles
+  skeletonBar: {
+    height: 4,
+    backgroundColor: '#E5E7EB',
+  },
+  skeletonTitle: {
+    height: 24,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 6,
+    marginBottom: 8,
+  },
+  skeletonText: {
+    height: 16,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 4,
+    marginTop: 6,
   },
   emptyContainer: {
     flex: 1,
@@ -695,18 +860,20 @@ const styles = StyleSheet.create({
     padding: 40,
   },
   emptyIcon: {
-    fontSize: 64,
-    marginBottom: 16,
+    fontSize: 72,
+    marginBottom: 20,
   },
   emptyText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1A1A1A',
     marginBottom: 8,
+    textAlign: 'center',
   },
   emptySubtext: {
-    fontSize: 14,
-    color: '#999',
+    fontSize: 16,
+    color: '#6B7280',
     textAlign: 'center',
+    lineHeight: 24,
   },
 });
