@@ -300,6 +300,142 @@ INSERT INTO template_tasks (template_id, description, is_recurring, display_orde
 ON CONFLICT DO NOTHING;
 
 -- =====================================================
+-- 11. Loop Library Enhancements (2025-11-15)
+-- =====================================================
+
+-- Table: template_reviews
+-- Store user reviews and ratings for templates
+CREATE TABLE IF NOT EXISTS template_reviews (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  template_id UUID NOT NULL REFERENCES loop_templates(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  review_text TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(template_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_template_reviews_template ON template_reviews(template_id);
+CREATE INDEX IF NOT EXISTS idx_template_reviews_user ON template_reviews(user_id);
+CREATE INDEX IF NOT EXISTS idx_template_reviews_rating ON template_reviews(rating);
+
+ALTER TABLE template_reviews ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Anyone can view template reviews" ON template_reviews;
+CREATE POLICY "Anyone can view template reviews"
+  ON template_reviews FOR SELECT
+  USING (true);
+
+DROP POLICY IF EXISTS "Users can insert their own reviews" ON template_reviews;
+CREATE POLICY "Users can insert their own reviews"
+  ON template_reviews FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update their own reviews" ON template_reviews;
+CREATE POLICY "Users can update their own reviews"
+  ON template_reviews FOR UPDATE
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can delete their own reviews" ON template_reviews;
+CREATE POLICY "Users can delete their own reviews"
+  ON template_reviews FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- Add average rating and review count to loop_templates
+ALTER TABLE loop_templates ADD COLUMN IF NOT EXISTS average_rating DECIMAL(3,2) DEFAULT 0;
+ALTER TABLE loop_templates ADD COLUMN IF NOT EXISTS review_count INTEGER DEFAULT 0;
+
+-- Function to update template rating statistics
+CREATE OR REPLACE FUNCTION update_template_rating_stats()
+RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE loop_templates
+  SET
+    average_rating = (
+      SELECT COALESCE(AVG(rating), 0)
+      FROM template_reviews
+      WHERE template_id = COALESCE(NEW.template_id, OLD.template_id)
+    ),
+    review_count = (
+      SELECT COUNT(*)
+      FROM template_reviews
+      WHERE template_id = COALESCE(NEW.template_id, OLD.template_id)
+    )
+  WHERE id = COALESCE(NEW.template_id, OLD.template_id);
+
+  RETURN COALESCE(NEW, OLD);
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS on_template_review_change ON template_reviews;
+CREATE TRIGGER on_template_review_change
+  AFTER INSERT OR UPDATE OR DELETE ON template_reviews
+  FOR EACH ROW
+  EXECUTE FUNCTION update_template_rating_stats();
+
+-- Table: template_favorites
+CREATE TABLE IF NOT EXISTS template_favorites (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  template_id UUID NOT NULL REFERENCES loop_templates(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(template_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_template_favorites_template ON template_favorites(template_id);
+CREATE INDEX IF NOT EXISTS idx_template_favorites_user ON template_favorites(user_id);
+
+ALTER TABLE template_favorites ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view their own favorites" ON template_favorites;
+CREATE POLICY "Users can view their own favorites"
+  ON template_favorites FOR SELECT
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can insert their own favorites" ON template_favorites;
+CREATE POLICY "Users can insert their own favorites"
+  ON template_favorites FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can delete their own favorites" ON template_favorites;
+CREATE POLICY "Users can delete their own favorites"
+  ON template_favorites FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- More sample creators and templates
+INSERT INTO template_creators (id, name, bio, title, photo_url) VALUES
+  ('00000000-0000-0000-0000-000000000004', 'Cal Newport', 'Cal Newport is a computer science professor at Georgetown University and the author of several books including "Deep Work" and "Digital Minimalism".', 'Author & Professor', NULL),
+  ('00000000-0000-0000-0000-000000000005', 'Robin Sharma', 'Robin Sharma is a leadership expert and author of "The 5 AM Club" and "The Monk Who Sold His Ferrari".', 'Leadership Expert', NULL),
+  ('00000000-0000-0000-0000-000000000006', 'BJ Fogg', 'BJ Fogg is a behavior scientist at Stanford University and founder of the Behavior Design Lab. His book "Tiny Habits" presents a breakthrough method for creating good habits.', 'Behavior Scientist', NULL),
+  ('00000000-0000-0000-0000-000000000007', 'Stephen Covey', 'Stephen Covey was an educator and author of "The 7 Habits of Highly Effective People", one of the most influential business books of all time.', 'Author & Educator', NULL)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO loop_templates (id, creator_id, title, description, book_course_title, affiliate_link, color, category, is_featured, popularity_score) VALUES
+  ('10000000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-000000000004', 'Deep Work Session', 'Maximize focus with Cal Newport''s Deep Work methodology for distraction-free concentration.', 'Deep Work', 'https://www.amazon.com/Deep-Work-Focused-Success-Distracted/dp/1455586692', '#2196F3', 'work', true, 150),
+  ('10000000-0000-0000-0000-000000000005', '00000000-0000-0000-0000-000000000005', 'The 5 AM Club Routine', 'Join the 5 AM Club with Robin Sharma''s 20/20/20 formula: movement, reflection, and growth.', 'The 5 AM Club', 'https://www.amazon.com/AM-Club-Morning-Elevate-Life/dp/1443456624', '#FF5722', 'daily', true, 200),
+  ('10000000-0000-0000-0000-000000000006', '00000000-0000-0000-0000-000000000006', 'Tiny Habits Starter Pack', 'Start small with BJ Fogg''s Tiny Habits method using behavior design principles.', 'Tiny Habits', 'https://www.amazon.com/Tiny-Habits-Changes-Change-Everything/dp/0358003326', '#8BC34A', 'personal', true, 175),
+  ('10000000-0000-0000-0000-000000000007', '00000000-0000-0000-0000-000000000007', '7 Habits Weekly Check-In', 'Master Stephen Covey''s 7 Habits with this weekly reflection loop.', 'The 7 Habits of Highly Effective People', 'https://www.amazon.com/Habits-Highly-Effective-People-Powerful/dp/1982137274', '#9C27B0', 'work', true, 250)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO template_tasks (template_id, description, is_recurring, display_order) VALUES
+  ('10000000-0000-0000-0000-000000000004', 'Choose your most important task for deep work', true, 1),
+  ('10000000-0000-0000-0000-000000000004', 'Eliminate all distractions (phone, email, social media)', true, 2),
+  ('10000000-0000-0000-0000-000000000004', 'Set a timer for 90-120 minutes of focused work', true, 3),
+  ('10000000-0000-0000-0000-000000000004', 'Work with full concentration on the chosen task', true, 4),
+  ('10000000-0000-0000-0000-000000000005', 'Wake up at 5:00 AM', true, 1),
+  ('10000000-0000-0000-0000-000000000005', '20 min: Move - Exercise to activate your body', true, 2),
+  ('10000000-0000-0000-0000-000000000005', '20 min: Reflect - Meditation or journaling', true, 3),
+  ('10000000-0000-0000-0000-000000000005', '20 min: Grow - Read or learn something new', true, 4),
+  ('10000000-0000-0000-0000-000000000006', 'After I pour my morning coffee, I will do 2 pushups', true, 1),
+  ('10000000-0000-0000-0000-000000000006', 'After I brush my teeth, I will floss one tooth', true, 2),
+  ('10000000-0000-0000-0000-000000000006', 'After I sit down for lunch, I will take 3 deep breaths', true, 3),
+  ('10000000-0000-0000-0000-000000000007', 'Habit 1: Be Proactive - Review your circle of influence', true, 1),
+  ('10000000-0000-0000-0000-000000000007', 'Habit 2: Begin with the End in Mind - Revisit your mission', true, 2),
+  ('10000000-0000-0000-0000-000000000007', 'Habit 3: Put First Things First - Time block important tasks', true, 3)
+ON CONFLICT DO NOTHING;
+
+-- =====================================================
 -- Migration Complete!
 -- =====================================================
 

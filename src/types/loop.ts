@@ -86,6 +86,8 @@ export interface LoopTemplate {
   category: LoopType;
   is_featured: boolean;
   popularity_score: number;
+  average_rating: number;
+  review_count: number;
   created_at: string;
   updated_at: string;
 }
@@ -108,10 +110,30 @@ export interface UserTemplateUsage {
   added_at: string;
 }
 
+export interface TemplateReview {
+  id: string;
+  template_id: string;
+  user_id: string;
+  rating: number; // 1-5
+  review_text?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TemplateFavorite {
+  id: string;
+  template_id: string;
+  user_id: string;
+  created_at: string;
+}
+
 export interface LoopTemplateWithDetails extends LoopTemplate {
   creator: TemplateCreator;
   tasks: TemplateTask[];
   taskCount: number;
+  userRating?: number;
+  isFavorite?: boolean;
+  isAdded?: boolean;
 }
 
 /**
