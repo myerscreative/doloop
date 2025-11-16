@@ -6,11 +6,17 @@ import {
   TouchableOpacity,
   Alert,
   RefreshControl,
+  Modal,
+  StyleSheet,
+  Platform,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { RootStackParamList } from '../../App';
 
 import { useTheme } from '../contexts/ThemeContext';
@@ -37,6 +43,9 @@ export const LoopDetailScreen: React.FC = () => {
   const [showResetMenu, setShowResetMenu] = useState(false);
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [showThemePrompt, setShowThemePrompt] = useState(false);
+
+  const THEME_PROMPT_SHOWN_KEY = '@doloop_theme_prompt_shown';
 
   const formatNextReset = (nextResetAt: string | null) => {
     if (!nextResetAt) return 'Not scheduled';
@@ -64,7 +73,7 @@ export const LoopDetailScreen: React.FC = () => {
     loadLoopData();
   }, [loopId]);
 
-  const loadLoopData = async () => {
+  const loadLoopData = async (): Promise<LoopWithTasks | null> => {
     try {
       const { data: loop, error: loopError } = await supabase
         .from('loops')
@@ -85,15 +94,19 @@ export const LoopDetailScreen: React.FC = () => {
       const completedCount = tasks?.filter(task => task.completed && !task.is_one_time).length || 0;
       const totalCount = tasks?.filter(task => !task.is_one_time).length || 0;
 
-      setLoopData({
+      const loopWithTasks: LoopWithTasks = {
         ...loop,
         tasks: tasks || [],
         completedCount,
         totalCount,
-      });
+      };
+
+      setLoopData(loopWithTasks);
+      return loopWithTasks;
     } catch (error) {
       console.error('Error loading loop data:', error);
       Alert.alert('Error', 'Failed to load loop data');
+      return null;
     }
   };
 
@@ -133,11 +146,69 @@ export const LoopDetailScreen: React.FC = () => {
         await supabase.from('tasks').delete().eq('id', task.id);
       }
 
-      await loadLoopData();
+      const updatedLoopData = await loadLoopData();
+      
+      // Check if this is the first loop completion and show theme prompt
+      if (updatedLoopData) {
+        await checkAndShowThemePrompt(updatedLoopData);
+      }
     } catch (error) {
       console.error('Error toggling task:', error);
       Alert.alert('Error', 'Failed to update task');
     }
+  };
+
+  const checkAndShowThemePrompt = async (currentLoopData: LoopWithTasks) => {
+    if (!currentLoopData || !user) return;
+
+    // Check if loop is complete
+    const isComplete = currentLoopData.completedCount === currentLoopData.totalCount && currentLoopData.totalCount > 0;
+    if (!isComplete) return;
+
+    // Check if prompt has been shown before
+    const promptShown = await AsyncStorage.getItem(THEME_PROMPT_SHOWN_KEY);
+    if (promptShown === 'true') return;
+
+    // Check if this is the user's first completed loop
+    // Count completed loops (loops where all tasks are done)
+    const { data: allLoops } = await supabase
+      .from('loops')
+      .select('id')
+      .eq('owner_id', user.id);
+
+    if (!allLoops || allLoops.length === 0) return;
+
+    let completedLoopsCount = 0;
+    for (const loop of allLoops) {
+      const { data: tasks } = await supabase
+        .from('tasks')
+        .select('id, completed, is_one_time')
+        .eq('loop_id', loop.id)
+        .eq('is_one_time', false);
+
+      const completed = tasks?.filter(t => t.completed).length || 0;
+      const total = tasks?.length || 0;
+      
+      if (total > 0 && completed === total) {
+        completedLoopsCount++;
+      }
+    }
+
+    // Show prompt only if this is the first completed loop
+    if (completedLoopsCount === 1) {
+      setShowThemePrompt(true);
+    }
+  };
+
+  const handleThemePromptCustomize = () => {
+    setShowThemePrompt(false);
+    AsyncStorage.setItem(THEME_PROMPT_SHOWN_KEY, 'true');
+    navigation.navigate('Settings');
+  };
+
+  const handleThemePromptLater = async () => {
+    setShowThemePrompt(false);
+    await AsyncStorage.setItem(THEME_PROMPT_SHOWN_KEY, 'true');
   };
 
   const handleAddTask = async (description: string, isOneTime: boolean, notes?: string) => {
@@ -255,15 +326,18 @@ export const LoopDetailScreen: React.FC = () => {
   };
 
   const handleReloop = async () => {
-    if (showResetMenu) {
-      // Manual reset override
+    if (loopData?.reset_rule === 'manual') {
+      // For manual loops, always allow reset
+      await resetLoop();
+    } else if (showResetMenu) {
+      // Manual reset override for scheduled loops
       await resetLoop();
     } else {
       // Regular reloop - reset if scheduled
       const now = new Date();
       const nextReset = new Date(loopData?.next_reset_at || '');
 
-      if (loopData?.reset_rule === 'manual' || now >= nextReset) {
+      if (now >= nextReset) {
         await resetLoop();
       } else {
         Alert.alert(
@@ -481,7 +555,9 @@ export const LoopDetailScreen: React.FC = () => {
             marginTop: 12,
             textAlign: 'center',
           }}>
-            Resets {loopData.reset_rule} • Next: {formatNextReset(loopData.next_reset_at)}
+            {loopData.reset_rule === 'manual'
+              ? 'Manual checklist • Complete when ready'
+              : `Resets ${loopData.reset_rule} • Next: ${formatNextReset(loopData.next_reset_at)}`}
           </Text>
         </View>
 
@@ -754,29 +830,90 @@ export const LoopDetailScreen: React.FC = () => {
           left: 20,
           right: 20,
         }}>
-          <TouchableOpacity
-            style={{
-              backgroundColor: showResetMenu ? colors.error : (progress >= 100 ? loopData.color : colors.border),
-              paddingVertical: 16,
-              paddingHorizontal: 24,
-              borderRadius: 25,
-              alignItems: 'center',
-              opacity: (progress >= 100 || showResetMenu) ? 1 : 0.5,
-            }}
-            onPress={handleReloop}
-            onLongPress={longPressReloop}
-            delayLongPress={500}
-            disabled={progress < 100 && !showResetMenu}
-          >
-            <Text style={{
-              color: 'white',
-              fontSize: 16,
-              fontWeight: 'bold',
-            }}>
-              {showResetMenu ? 'Reset Now' : 'Reloop'}
-            </Text>
-          </TouchableOpacity>
+          {(() => {
+            const isManual = loopData?.reset_rule === 'manual';
+            const canReset = isManual ? progress >= 100 : (progress >= 100 || showResetMenu);
+            const buttonText = showResetMenu ? 'Reset Now' : (isManual ? 'Complete Checklist' : 'Reloop');
+
+            return (
+              <TouchableOpacity
+                style={{
+                  backgroundColor: showResetMenu ? colors.error : (canReset ? loopData.color : colors.border),
+                  paddingVertical: 16,
+                  paddingHorizontal: 24,
+                  borderRadius: 25,
+                  alignItems: 'center',
+                  opacity: canReset ? 1 : 0.5,
+                }}
+                onPress={handleReloop}
+                onLongPress={longPressReloop}
+                delayLongPress={500}
+                disabled={!canReset}
+              >
+                <Text style={{
+                  color: 'white',
+                  fontSize: 16,
+                  fontWeight: 'bold',
+                }}>
+                  {buttonText}
+                </Text>
+              </TouchableOpacity>
+            );
+          })()}
         </View>
+
+        {/* Theme Customization Prompt Modal */}
+        <Modal
+          visible={showThemePrompt}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={handleThemePromptLater}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+              <Text style={[styles.modalEmoji, { fontSize: 64 }]}>🎉</Text>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
+                Nice work!
+              </Text>
+              <Text style={[styles.modalMessage, { color: colors.textSecondary }]}>
+                Want to personalize your DoLoop theme?
+              </Text>
+              
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={styles.modalButtonSecondary}
+                  onPress={handleThemePromptLater}
+                  accessible={true}
+                  accessibilityRole="button"
+                  accessibilityLabel="Maybe later"
+                >
+                  <Text style={[styles.modalButtonTextSecondary, { color: colors.textSecondary }]}>
+                    Maybe Later
+                  </Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={styles.modalButtonPrimary}
+                  onPress={handleThemePromptCustomize}
+                  accessible={true}
+                  accessibilityRole="button"
+                  accessibilityLabel="Customize theme"
+                >
+                  <LinearGradient
+                    colors={[colors.primary, colors.primary + 'CC']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.modalButtonGradient}
+                  >
+                    <Text style={styles.modalButtonTextPrimary}>
+                      Customize Theme
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
 
         {/* Task Modal (no button, just the modal) */}
         <FAB 
@@ -791,3 +928,73 @@ export const LoopDetailScreen: React.FC = () => {
     </SafeAreaView>
   );
 };
+
+const styles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  modalEmoji: {
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    textAlign: 'center',
+    fontFamily: 'Inter_700Bold',
+  },
+  modalMessage: {
+    fontSize: 16,
+    marginBottom: 32,
+    textAlign: 'center',
+    fontFamily: 'Inter_400Regular',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  modalButtonSecondary: {
+    flex: 1,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  modalButtonTextSecondary: {
+    fontSize: 16,
+    fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
+  },
+  modalButtonPrimary: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  modalButtonGradient: {
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+  },
+  modalButtonTextPrimary: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#000',
+    fontFamily: 'Inter_700Bold',
+  },
+});

@@ -18,6 +18,7 @@ import { LoginScreen } from './src/screens/LoginScreen';
 import { TemplateLibraryScreen } from './src/screens/TemplateLibraryScreen';
 import { TemplateDetailScreen } from './src/screens/TemplateDetailScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
+import { SettingsScreen } from './src/screens/SettingsScreen';
 
 export type RootStackParamList = {
   Onboarding: undefined;
@@ -26,6 +27,7 @@ export type RootStackParamList = {
   LoopDetail: { loopId: string };
   TemplateLibrary: undefined;
   TemplateDetail: { templateId: string };
+  Settings: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -87,8 +89,8 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <ThemeProvider>
-        <AuthProvider>
+      <AuthProvider>
+        <ThemeProvider>
           <NavigationContainer
             linking={linking}
             initialState={initialNavState}
@@ -106,11 +108,12 @@ export default function App() {
               <Stack.Screen name="LoopDetail" component={LoopDetailScreen} />
               <Stack.Screen name="TemplateLibrary" component={TemplateLibraryScreen} />
               <Stack.Screen name="TemplateDetail" component={TemplateDetailScreen} />
+              <Stack.Screen name="Settings" component={SettingsScreen} />
             </Stack.Navigator>
           </NavigationContainer>
           <StatusBar style="auto" />
-        </AuthProvider>
-      </ThemeProvider>
+        </ThemeProvider>
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }

@@ -1,6 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Ionicons } from '@expo/vector-icons';
+import { RootStackParamList } from '../../App';
 import { BeeIcon } from './native/BeeIcon';
+
+type HeaderNavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 interface HeaderProps {
   currentDate: string;
@@ -14,6 +20,8 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ currentDate, streak = 0, colors }) => {
+  const navigation = useNavigation<HeaderNavigationProp>();
+
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) {
@@ -60,13 +68,24 @@ export const Header: React.FC<HeaderProps> = ({ currentDate, streak = 0, colors 
             {greeting.text} {greeting.emoji}
           </Text>
         </View>
-        {streak > 0 && (
-          <View style={[styles.streakBadge, { backgroundColor: colors.accentYellow }]}>
-            <Text style={styles.streakText}>
-              🔥 {streak}
-            </Text>
-          </View>
-        )}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          {streak > 0 && (
+            <View style={[styles.streakBadge, { backgroundColor: colors.accentYellow }]}>
+              <Text style={styles.streakText}>
+                🔥 {streak}
+              </Text>
+            </View>
+          )}
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Settings')}
+            style={styles.settingsButton}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel="Open settings"
+          >
+            <Ionicons name="settings-outline" size={24} color={colors.text} />
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -102,6 +121,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#000',
+  },
+  settingsButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 

@@ -25,17 +25,21 @@ import { LoopSelectionModal } from '../components/LoopSelectionModal';
 
 type HomeScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
+type FilterType = 'all' | 'manual' | 'daily' | 'weekly';
+
 export const HomeScreen: React.FC = () => {
   const { colors } = useTheme();
   const { user, signOut, loading } = useAuth();
   const navigation = useNavigation<HomeScreenNavigationProp>();
-  const [folders, setFolders] = useState<Folder[]>([]);
+  const [loops, setLoops] = useState<any[]>([]);
+  const [filteredLoops, setFilteredLoops] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [currentDate, setCurrentDate] = useState('');
   const [totalStreak, setTotalStreak] = useState(0);
   const [modalVisible, setModalVisible] = useState(false);
   const [newLoopName, setNewLoopName] = useState('');
-  const [selectedLoopType, setSelectedLoopType] = useState<LoopType>('personal');
+  const [selectedLoopType, setSelectedLoopType] = useState<string>('manual');
+  const [selectedFilter, setSelectedFilter] = useState<FilterType>('all');
   const [creating, setCreating] = useState(false);
   const [selectionModalVisible, setSelectionModalVisible] = useState(false);
   const [loopsToSelect, setLoopsToSelect] = useState<any[]>([]);
@@ -50,6 +54,20 @@ export const HomeScreen: React.FC = () => {
       loadData();
     }
   }, [user]);
+
+  useEffect(() => {
+    filterLoops();
+  }, [loops, selectedFilter]);
+
+  const filterLoops = () => {
+    let filtered = [...loops];
+
+    if (selectedFilter !== 'all') {
+      filtered = filtered.filter(loop => loop.reset_rule === selectedFilter);
+    }
+
+    setFilteredLoops(filtered);
+  };
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -80,14 +98,6 @@ export const HomeScreen: React.FC = () => {
 
       if (loopsError) throw loopsError;
 
-      // Calculate folder data
-      const folderMap: Record<LoopType, Folder> = {
-        personal: { id: 'personal', name: 'Personal', color: FOLDER_COLORS.personal, icon: FOLDER_ICONS.personal, count: 0 },
-        work: { id: 'work', name: 'Work', color: FOLDER_COLORS.work, icon: FOLDER_ICONS.work, count: 0 },
-        daily: { id: 'daily', name: 'Daily', color: FOLDER_COLORS.daily, icon: FOLDER_ICONS.daily, count: 0 },
-        shared: { id: 'shared', name: 'Shared', color: FOLDER_COLORS.shared, icon: FOLDER_ICONS.shared, count: 0 },
-      };
-
       // Get global user streak
       const { data: streakData, error: streaksError } = await supabase
         .from('user_streaks')
@@ -101,16 +111,7 @@ export const HomeScreen: React.FC = () => {
         setTotalStreak(0);
       }
 
-      // Categorize loops by type
-      userLoops?.forEach((loop: any) => {
-        const loopType: LoopType = loop.loop_type || 'personal'; // Use loop_type from database
-        if (folderMap[loopType]) {
-          folderMap[loopType].count += 1;
-        }
-      });
-
-      // Show ALL folders, even if they have 0 loops
-      setFolders(Object.values(folderMap));
+      setLoops(userLoops || []);
     } catch (error) {
       console.error('Error loading home data:', error);
     }
@@ -122,48 +123,8 @@ export const HomeScreen: React.FC = () => {
     setRefreshing(false);
   };
 
-  const handleFolderPress = async (folderId: string) => {
-    console.log('[HomeScreen] Folder pressed:', folderId);
-    console.log('[HomeScreen] User ID:', user?.id);
-    
-    try {
-      // Get all loops for this folder type
-      console.log('[HomeScreen] Querying loops for folder:', folderId);
-      const { data: loopsInFolder, error } = await supabase
-        .from('loops')
-        .select('*')
-        .eq('owner_id', user?.id)
-        .eq('loop_type', folderId);
-
-      console.log('[HomeScreen] Query result:', { loopsInFolder, error });
-
-      if (error) {
-        console.error('[HomeScreen] Query error:', error);
-        throw error;
-      }
-
-      if (!loopsInFolder || loopsInFolder.length === 0) {
-        console.log('[HomeScreen] No loops in folder');
-        alert(`No loops in ${folderId} folder yet. Create one using the + button!`);
-        return;
-      }
-
-      // If only one loop, navigate directly to it
-      if (loopsInFolder.length === 1) {
-        console.log('[HomeScreen] Navigating to single loop:', loopsInFolder[0].id);
-        navigation.navigate('LoopDetail', { loopId: loopsInFolder[0].id });
-        return;
-      }
-
-      // If multiple loops, show selection modal
-      console.log('[HomeScreen] Multiple loops found:', loopsInFolder.length);
-      setLoopsToSelect(loopsInFolder);
-      setSelectedFolderName(folderId.charAt(0).toUpperCase() + folderId.slice(1));
-      setSelectionModalVisible(true);
-    } catch (error) {
-      console.error('[HomeScreen] Error loading folder loops:', error);
-      alert('Failed to load loops. Check console for details.');
-    }
+  const handleLoopPress = (loop: any) => {
+    navigation.navigate('LoopDetail', { loopId: loop.id });
   };
 
   const handleSignOut = async () => {
@@ -185,7 +146,13 @@ export const HomeScreen: React.FC = () => {
     
     try {
       // Calculate next reset time based on reset rule
-      const nextResetAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 hours from now for daily
+      let nextResetAt: string | null = null;
+      if (selectedLoopType === 'daily') {
+        nextResetAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 hours from now
+      } else if (selectedLoopType === 'weekly') {
+        nextResetAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 7 days from now
+      }
+      // Manual loops have next_reset_at = null
 
       console.log('[HomeScreen] Inserting into database...');
       const { data, error } = await supabase
@@ -193,9 +160,10 @@ export const HomeScreen: React.FC = () => {
         .insert({
           name: newLoopName.trim(),
           owner_id: user?.id,
-          loop_type: selectedLoopType,
-          color: FOLDER_COLORS[selectedLoopType],
-          reset_rule: 'daily',
+          loop_type: 'personal', // Keep for backward compatibility
+          color: selectedLoopType === 'manual' ? '#10B981' :
+                 selectedLoopType === 'daily' ? '#F59E0B' : '#8B5CF6',
+          reset_rule: selectedLoopType,
           next_reset_at: nextResetAt,
         })
         .select()
@@ -209,7 +177,7 @@ export const HomeScreen: React.FC = () => {
       console.log('[HomeScreen] Loop created successfully:', data);
       setModalVisible(false);
       setNewLoopName('');
-      setSelectedLoopType('personal');
+      setSelectedLoopType('manual');
       await loadData();
       
       // Navigate to the newly created loop
@@ -246,14 +214,14 @@ export const HomeScreen: React.FC = () => {
         {/* Header */}
         <Header currentDate={currentDate} streak={totalStreak} colors={colors} />
 
-        {/* Folders */}
-        <ScrollView
-          style={{ flex: 1 }}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-        >
-        <View style={{ padding: 20 }}>
+        {/* Filter Tabs */}
+        <View style={{
+          backgroundColor: colors.surface,
+          paddingHorizontal: 20,
+          paddingVertical: 16,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.border,
+        }}>
           <Text style={{
             fontSize: 18,
             fontWeight: 'bold',
@@ -263,9 +231,52 @@ export const HomeScreen: React.FC = () => {
             Your Loops
           </Text>
 
-          {folders.map((folder) => (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 8 }}
+          >
+            {[
+              { id: 'all' as FilterType, label: 'All', icon: '⭐' },
+              { id: 'manual' as FilterType, label: 'Checklists', icon: '✓' },
+              { id: 'daily' as FilterType, label: 'Daily', icon: '☀️' },
+              { id: 'weekly' as FilterType, label: 'Weekly', icon: '🎯' },
+            ].map((tab) => (
+              <TouchableOpacity
+                key={tab.id}
+                style={{
+                  paddingHorizontal: 16,
+                  paddingVertical: 8,
+                  borderRadius: 20,
+                  borderWidth: 2,
+                  borderColor: selectedFilter === tab.id ? colors.primary : colors.border,
+                  backgroundColor: selectedFilter === tab.id ? `${colors.primary}20` : 'transparent',
+                }}
+                onPress={() => setSelectedFilter(tab.id)}
+              >
+                <Text style={{
+                  fontSize: 16,
+                  fontWeight: selectedFilter === tab.id ? 'bold' : 'normal',
+                  color: selectedFilter === tab.id ? colors.primary : colors.textSecondary,
+                }}>
+                  {tab.icon} {tab.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* Loops */}
+        <ScrollView
+          style={{ flex: 1 }}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        >
+        <View style={{ padding: 20 }}>
+          {filteredLoops.map((loop) => (
             <TouchableOpacity
-              key={folder.id}
+              key={loop.id}
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
@@ -279,41 +290,68 @@ export const HomeScreen: React.FC = () => {
                 shadowRadius: 4,
                 elevation: 2,
               }}
-              onPress={() => handleFolderPress(folder.id)}
+              onPress={() => handleLoopPress(loop)}
             >
               <View style={{
                 width: 40,
                 height: 40,
                 borderRadius: 20,
-                backgroundColor: folder.color,
+                backgroundColor: loop.color,
                 alignItems: 'center',
                 justifyContent: 'center',
                 marginRight: 16,
               }}>
-                <Text style={{ fontSize: 20 }}>{folder.icon}</Text>
+                <Text style={{ fontSize: 20 }}>
+                  {loop.reset_rule === 'manual' ? '✓' :
+                   loop.reset_rule === 'daily' ? '☀️' : '🎯'}
+                </Text>
               </View>
 
               <View style={{ flex: 1 }}>
-                <Text style={{
-                  fontSize: 16,
-                  fontWeight: '600',
-                  color: colors.text,
-                }}>
-                  {folder.name}
-                </Text>
-                {folder.count > 0 && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                  <Text style={{
+                    fontSize: 16,
+                    fontWeight: '600',
+                    color: colors.text,
+                    marginRight: 8,
+                  }}>
+                    {loop.name}
+                  </Text>
+                  <View style={{
+                    paddingHorizontal: 8,
+                    paddingVertical: 2,
+                    borderRadius: 10,
+                    backgroundColor: loop.reset_rule === 'manual' ? '#10B981' :
+                                   loop.reset_rule === 'daily' ? '#F59E0B' : '#8B5CF6',
+                  }}>
+                    <Text style={{
+                      fontSize: 12,
+                      fontWeight: 'bold',
+                      color: 'white',
+                    }}>
+                      {loop.reset_rule === 'manual' ? '✓ Checklist' :
+                       loop.reset_rule === 'daily' ? '☀️ Daily' : '🎯 Weekly'}
+                    </Text>
+                  </View>
+                </View>
+                {loop.is_favorite && (
                   <Text style={{
                     fontSize: 14,
                     color: colors.textSecondary,
                   }}>
-                    {folder.count} {folder.count === 1 ? 'loop' : 'loops'}
+                    ⭐ Favorite
                   </Text>
                 )}
               </View>
+
+              <Text style={{
+                fontSize: 20,
+                color: colors.primary,
+              }}>›</Text>
             </TouchableOpacity>
           ))}
 
-          {folders.length === 0 && (
+          {filteredLoops.length === 0 && (
             <View style={{
               alignItems: 'center',
               paddingVertical: 40,
@@ -322,9 +360,32 @@ export const HomeScreen: React.FC = () => {
                 fontSize: 16,
                 color: colors.textSecondary,
                 textAlign: 'center',
+                marginBottom: 16,
               }}>
-                No loops yet. Create your first loop to get started!
+                {selectedFilter === 'all'
+                  ? 'No loops yet. Create your first loop to get started!'
+                  : `No ${selectedFilter === 'manual' ? 'checklists' : selectedFilter === 'daily' ? 'daily routines' : 'weekly goals'} yet.`}
               </Text>
+              {selectedFilter !== 'all' && (
+                <TouchableOpacity
+                  style={{
+                    paddingHorizontal: 16,
+                    paddingVertical: 8,
+                    borderRadius: 20,
+                    borderWidth: 2,
+                    borderColor: colors.primary,
+                  }}
+                  onPress={() => setSelectedFilter('all')}
+                >
+                  <Text style={{
+                    fontSize: 14,
+                    fontWeight: 'bold',
+                    color: colors.primary,
+                  }}>
+                    View All Loops
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
 
@@ -484,9 +545,13 @@ export const HomeScreen: React.FC = () => {
               </Text>
 
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
-                {(['personal', 'work', 'daily', 'shared'] as LoopType[]).map((type) => (
+                {[
+                  { id: 'manual', label: 'Checklist', icon: '✓', description: 'Manual reset' },
+                  { id: 'daily', label: 'Daily Routine', icon: '☀️', description: 'Resets daily' },
+                  { id: 'weekly', label: 'Weekly Goal', icon: '🎯', description: 'Resets weekly' },
+                ].map((type) => (
                   <TouchableOpacity
-                    key={type}
+                    key={type.id}
                     style={{
                       flexDirection: 'row',
                       alignItems: 'center',
@@ -494,18 +559,17 @@ export const HomeScreen: React.FC = () => {
                       paddingVertical: 8,
                       borderRadius: 20,
                       borderWidth: 2,
-                      borderColor: selectedLoopType === type ? FOLDER_COLORS[type] : colors.border,
-                      backgroundColor: selectedLoopType === type ? `${FOLDER_COLORS[type]}20` : 'transparent',
+                      borderColor: selectedLoopType === type.id ? colors.primary : colors.border,
+                      backgroundColor: selectedLoopType === type.id ? `${colors.primary}20` : 'transparent',
                     }}
-                    onPress={() => setSelectedLoopType(type)}
+                    onPress={() => setSelectedLoopType(type.id as LoopType)}
                   >
-                    <Text style={{ fontSize: 18, marginRight: 6 }}>{FOLDER_ICONS[type]}</Text>
+                    <Text style={{ fontSize: 18, marginRight: 6 }}>{type.icon}</Text>
                     <Text style={{
-                      color: selectedLoopType === type ? colors.text : colors.textSecondary,
-                      fontWeight: selectedLoopType === type ? 'bold' : 'normal',
-                      textTransform: 'capitalize',
+                      color: selectedLoopType === type.id ? colors.text : colors.textSecondary,
+                      fontWeight: selectedLoopType === type.id ? 'bold' : 'normal',
                     }}>
-                      {type}
+                      {type.label}
                     </Text>
                   </TouchableOpacity>
                 ))}

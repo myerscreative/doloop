@@ -338,9 +338,11 @@ export function TemplateLibraryScreen({ navigation }: Props) {
 
   const getCategoryIcon = (category: string) => {
     const icons: Record<string, string> = {
+      checklist: '✓',
+      daily: '☀️',
+      weekly: '🎯',
       personal: '🏡',
       work: '💼',
-      daily: '☀️',
       shared: '👥',
     };
     return icons[category] || '📋';
@@ -348,9 +350,11 @@ export function TemplateLibraryScreen({ navigation }: Props) {
 
   const categories = [
     { id: null, label: 'All', icon: '⭐' },
+    { id: 'checklist', label: 'Checklists', icon: '✓' },
+    { id: 'daily', label: 'Daily', icon: '☀️' },
+    { id: 'weekly', label: 'Weekly', icon: '🎯' },
     { id: 'personal', label: 'Personal', icon: '🌱' },
     { id: 'work', label: 'Work', icon: '💼' },
-    { id: 'daily', label: 'Daily', icon: '☀️' },
     { id: 'shared', label: 'Shared', icon: '👥' },
   ];
 
