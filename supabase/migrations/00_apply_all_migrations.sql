@@ -90,7 +90,7 @@ CREATE POLICY "Users can modify own streak" ON user_streaks
 
 -- 9. Initialize streaks for existing users
 INSERT INTO user_streaks (user_id, current_streak, longest_streak, last_completed_date, updated_at)
-SELECT DISTINCT id, 0, 0, NULL, NOW()
+SELECT DISTINCT id, 0, 0, NULL::timestamp with time zone, NOW()
 FROM auth.users
 ON CONFLICT (user_id) DO NOTHING;
 
