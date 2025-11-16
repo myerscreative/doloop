@@ -22,11 +22,11 @@ import { RootStackParamList } from '../../App';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { Task, LoopWithTasks } from '../types/loop';
+import { Task, LoopWithTasks, TaskWithDetails, Tag } from '../types/loop';
 import { AnimatedCircularProgress } from '../components/native/AnimatedCircularProgress';
-import { FAB } from '../components/native/FAB';
-import { AddTaskIcon } from '../components/native/AddTaskIcon';
-import { BeeIcon } from '../components/native/BeeIcon';
+import { EnhancedTaskCard } from '../components/native/EnhancedTaskCard';
+import { TaskEditModal } from '../components/native/TaskEditModal';
+import { getUserTags, getTaskTags, updateTaskExtended, createTag } from '../lib/taskHelpers';
 
 type LoopDetailScreenRouteProp = RouteProp<RootStackParamList, 'LoopDetail'>;
 type LoopDetailScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'LoopDetail'>;
@@ -41,21 +41,9 @@ export const LoopDetailScreen: React.FC = () => {
   const [loopData, setLoopData] = useState<LoopWithTasks | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [showResetMenu, setShowResetMenu] = useState(false);
-  const [showAddTaskModal, setShowAddTaskModal] = useState(false);
-  const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const [showThemePrompt, setShowThemePrompt] = useState(false);
-
-  const THEME_PROMPT_SHOWN_KEY = '@doloop_theme_prompt_shown';
-
-  const safeHapticImpact = async (style: Haptics.ImpactFeedbackStyle) => {
-    try {
-      if (Platform.OS !== 'web') {
-        await Haptics.impactAsync(style);
-      }
-    } catch (error) {
-      console.warn('[LoopDetail] Haptics not available:', error);
-    }
-  };
+  const [modalVisible, setModalVisible] = useState(false);
+  const [editingTask, setEditingTask] = useState<TaskWithDetails | null>(null);
+  const [availableTags, setAvailableTags] = useState<Tag[]>([]);
 
   const formatNextReset = (nextResetAt: string | null) => {
     if (!nextResetAt) return 'Not scheduled';
@@ -81,9 +69,16 @@ export const LoopDetailScreen: React.FC = () => {
 
   useEffect(() => {
     loadLoopData();
+    loadTags();
   }, [loopId]);
 
-  const loadLoopData = async (): Promise<LoopWithTasks | null> => {
+  const loadTags = async () => {
+    if (!user) return;
+    const tags = await getUserTags(user.id);
+    setAvailableTags(tags);
+  };
+
+  const loadLoopData = async () => {
     try {
       const { data: loop, error: loopError } = await supabase
         .from('loops')
@@ -101,12 +96,23 @@ export const LoopDetailScreen: React.FC = () => {
 
       if (tasksError) throw tasksError;
 
-      const completedCount = tasks?.filter(task => task.completed && !task.is_one_time).length || 0;
-      const totalCount = tasks?.filter(task => !task.is_one_time).length || 0;
+      // Load tags for each task
+      const tasksWithTags = await Promise.all(
+        (tasks || []).map(async (task) => {
+          const tags = await getTaskTags(task.id);
+          return {
+            ...task,
+            tag_details: tags,
+          };
+        })
+      );
+
+      const completedCount = tasksWithTags?.filter(task => task.status === 'done' && task.is_recurring).length || 0;
+      const totalCount = tasksWithTags?.filter(task => task.is_recurring).length || 0;
 
       const loopWithTasks: LoopWithTasks = {
         ...loop,
-        tasks: tasks || [],
+        tasks: tasksWithTags || [],
         completedCount,
         totalCount,
       };
@@ -168,81 +174,63 @@ export const LoopDetailScreen: React.FC = () => {
     }
   };
 
-  const checkAndShowThemePrompt = async (currentLoopData: LoopWithTasks) => {
-    if (!currentLoopData || !user) return;
-
-    // Check if loop is complete
-    const isComplete = currentLoopData.completedCount === currentLoopData.totalCount && currentLoopData.totalCount > 0;
-    if (!isComplete) return;
-
-    // Check if prompt has been shown before
-    const promptShown = await AsyncStorage.getItem(THEME_PROMPT_SHOWN_KEY);
-    if (promptShown === 'true') return;
-
-    // Check if this is the user's first completed loop
-    // Count completed loops (loops where all tasks are done)
-    const { data: allLoops } = await supabase
-      .from('loops')
-      .select('id')
-      .eq('owner_id', user.id);
-
-    if (!allLoops || allLoops.length === 0) return;
-
-    let completedLoopsCount = 0;
-    for (const loop of allLoops) {
-      const { data: tasks } = await supabase
-        .from('tasks')
-        .select('id, completed, is_one_time')
-        .eq('loop_id', loop.id)
-        .eq('is_one_time', false);
-
-      const completed = tasks?.filter(t => t.completed).length || 0;
-      const total = tasks?.length || 0;
-      
-      if (total > 0 && completed === total) {
-        completedLoopsCount++;
-      }
-    }
-
-    // Show prompt only if this is the first completed loop
-    if (completedLoopsCount === 1) {
-      setShowThemePrompt(true);
-    }
+  const handleAddTask = () => {
+    setEditingTask(null);
+    setModalVisible(true);
   };
 
-  const handleThemePromptCustomize = () => {
-    setShowThemePrompt(false);
-    AsyncStorage.setItem(THEME_PROMPT_SHOWN_KEY, 'true');
-    navigation.navigate('Settings');
+  const handleEditTask = (task: TaskWithDetails) => {
+    setEditingTask(task);
+    setModalVisible(true);
   };
 
-  const handleThemePromptLater = async () => {
-    setShowThemePrompt(false);
-    await AsyncStorage.setItem(THEME_PROMPT_SHOWN_KEY, 'true');
-  };
-
-  const handleAddTask = async (description: string, isOneTime: boolean, notes?: string) => {
+  const handleSaveTask = async (taskData: Partial<TaskWithDetails>) => {
     try {
-      console.log('[LoopDetail] Adding task:', { description, isOneTime, notes });
-      const { error } = await supabase.from('tasks').insert({
-        loop_id: loopId,
-        description,
-        notes: notes || null,
-        is_one_time: isOneTime,
-        completed: false,
-      });
+      if (editingTask) {
+        // Update existing task
+        await updateTaskExtended(editingTask.id, taskData);
+      } else {
+        // Create new task - set defaults for required fields
+        const { error } = await supabase.from('tasks').insert({
+          loop_id: loopId,
+          description: taskData.description,
+          is_recurring: taskData.is_recurring ?? true,
+          is_one_time: taskData.is_one_time ?? false,
+          status: 'pending',
+          assigned_user_id: user?.id,
+          priority: taskData.priority || 'none',
+          due_date: taskData.due_date,
+          notes: taskData.notes,
+          time_estimate_minutes: taskData.time_estimate_minutes,
+          reminder_at: taskData.reminder_at,
+        });
 
-      if (error) {
-        console.error('[LoopDetail] Database error:', error);
-        throw error;
+        if (error) throw error;
+
+        // If tags were selected, we need to get the task ID and add tags
+        if (taskData.tags && taskData.tags.length > 0) {
+          const { data: newTask } = await supabase
+            .from('tasks')
+            .select('id')
+            .eq('loop_id', loopId)
+            .eq('description', taskData.description)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+
+          if (newTask) {
+            await updateTaskExtended(newTask.id, { tags: taskData.tags });
+          }
+        }
       }
 
       console.log('[LoopDetail] Task added successfully');
       await loadLoopData();
-      setShowAddTaskModal(false);
+      setModalVisible(false);
+      setEditingTask(null);
     } catch (error) {
-      console.error('[LoopDetail] Error adding task:', error);
-      throw error;
+      console.error('Error saving task:', error);
+      Alert.alert('Error', 'Failed to save task');
     }
   };
 
@@ -363,7 +351,7 @@ export const LoopDetailScreen: React.FC = () => {
       await safeHapticImpact(Haptics.ImpactFeedbackStyle.Medium);
 
       // === STREAK LOGIC: Update global user streak for daily loops ===
-      if (loopData?.reset_rule === 'daily' && loopData.completedCount === loopData.totalCount) {
+      if (loopData && loopData.reset_rule === 'daily' && loopData.completedCount === loopData.totalCount) {
         // Check if ALL daily loops are complete
         const { data: allDailyLoops } = await supabase
           .from('loops')
@@ -449,7 +437,7 @@ export const LoopDetailScreen: React.FC = () => {
       if (error) throw error;
 
       // Update next reset time if scheduled
-      if (loopData?.reset_rule !== 'manual') {
+      if (loopData && loopData.reset_rule !== 'manual') {
         let nextResetAt: string;
         if (loopData.reset_rule === 'daily') {
           nextResetAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
@@ -639,93 +627,12 @@ export const LoopDetailScreen: React.FC = () => {
             </Text>
 
             {recurringTasks.map((task) => (
-              <View
+              <EnhancedTaskCard
                 key={task.id}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  backgroundColor: colors.surface,
-                  padding: 16,
-                  borderRadius: 8,
-                  marginBottom: 8,
-                }}
-              >
-                <TouchableOpacity
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    flex: 1,
-                  }}
-                  onPress={() => toggleTask(task)}
-                  onLongPress={() => handleLongPressTask(task)}
-                  delayLongPress={500}
-                >
-                  <View style={{
-                    width: 24,
-                    height: 24,
-                    borderRadius: 12,
-                    borderWidth: 2,
-                    borderColor: task.completed ? colors.primary : colors.border,
-                    backgroundColor: task.completed ? colors.primary : 'transparent',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginRight: 12,
-                  }}>
-                    {task.completed && (
-                      <Text style={{ color: 'white', fontSize: 14 }}>✓</Text>
-                    )}
-                  </View>
-
-                  <View style={{ flex: 1 }}>
-                    <Text style={{
-                      fontSize: 16,
-                      color: colors.text,
-                      textDecorationLine: task.completed ? 'line-through' : 'none',
-                      opacity: task.completed ? 0.6 : 1,
-                    }}>
-                      {task.description}
-                    </Text>
-                    {task.notes && (
-                      <Text style={{
-                        fontSize: 13,
-                        color: colors.textSecondary,
-                        marginTop: 4,
-                        opacity: task.completed ? 0.5 : 0.8,
-                      }}>
-                        {task.notes}
-                      </Text>
-                    )}
-                  </View>
-                </TouchableOpacity>
-
-                {/* Edit/Delete Buttons */}
-                <View style={{ flexDirection: 'row', gap: 8, marginLeft: 8 }}>
-                  <TouchableOpacity
-                    onPress={() => {
-                      setEditingTask(task);
-                      setShowAddTaskModal(true);
-                    }}
-                    style={{
-                      padding: 8,
-                      borderRadius: 6,
-                    }}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  >
-                    <Text style={{ fontSize: 18, color: colors.primary }}>✎</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={() => handleDeleteTask(task)}
-                    style={{
-                      padding: 8,
-                      borderRadius: 6,
-                    }}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  >
-                    <Text style={{ fontSize: 18, color: colors.error || '#ff4444' }}>🗑</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
+                task={task as TaskWithDetails}
+                onPress={() => handleEditTask(task as TaskWithDetails)}
+                onToggle={() => toggleTask(task)}
+              />
             ))}
 
             {/* Add Task Button */}
@@ -781,53 +688,12 @@ export const LoopDetailScreen: React.FC = () => {
             </Text>
 
             {oneTimeTasks.map((task) => (
-              <TouchableOpacity
+              <EnhancedTaskCard
                 key={task.id}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  backgroundColor: colors.surface,
-                  padding: 16,
-                  borderRadius: 8,
-                  marginBottom: 8,
-                  opacity: 0.8,
-                }}
-                onPress={() => toggleTask(task)}
-              >
-                <View style={{
-                  width: 24,
-                  height: 24,
-                  borderRadius: 12,
-                  borderWidth: 2,
-                  borderColor: task.completed ? colors.primary : colors.border,
-                  backgroundColor: task.completed ? colors.primary : 'transparent',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginRight: 12,
-                }}>
-                  {task.completed && (
-                    <Text style={{ color: 'white', fontSize: 14 }}>✓</Text>
-                  )}
-                </View>
-
-                <View style={{ flex: 1 }}>
-                  <Text style={{
-                    fontSize: 16,
-                    color: colors.text,
-                    textDecorationLine: task.completed ? 'line-through' : 'none',
-                    opacity: task.completed ? 0.6 : 1,
-                  }}>
-                    {task.description}
-                  </Text>
-                  <Text style={{
-                    fontSize: 12,
-                    color: colors.textSecondary,
-                    marginTop: 4,
-                  }}>
-                    Expires after check
-                  </Text>
-                </View>
-              </TouchableOpacity>
+                task={task as TaskWithDetails}
+                onPress={() => handleEditTask(task as TaskWithDetails)}
+                onToggle={() => toggleTask(task)}
+              />
             ))}
           </View>
         )}
@@ -925,16 +791,47 @@ export const LoopDetailScreen: React.FC = () => {
           </View>
         </Modal>
 
-        {/* Task Modal (no button, just the modal) */}
-        <FAB 
-          onAddTask={handleAddTask}
-          onEditTask={handleEditTask}
-          modalVisible={showAddTaskModal}
-          setModalVisible={setShowAddTaskModal}
-          hideButton={true}
-          editingTask={editingTask}
-        />
-      </View>
+      {/* FAB */}
+      <TouchableOpacity
+        style={{
+          position: 'absolute',
+          bottom: 24,
+          right: 24,
+          width: 56,
+          height: 56,
+          borderRadius: 28,
+          backgroundColor: colors.primary,
+          alignItems: 'center',
+          justifyContent: 'center',
+          elevation: 8,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.25,
+          shadowRadius: 4,
+        }}
+        onPress={handleAddTask}
+      >
+        <Text style={{ fontSize: 24, color: 'white', fontWeight: 'bold' }}>+</Text>
+      </TouchableOpacity>
+
+      {/* Task Edit Modal */}
+      <TaskEditModal
+        visible={modalVisible}
+        onClose={() => {
+          setModalVisible(false);
+          setEditingTask(null);
+        }}
+        onSave={handleSaveTask}
+        task={editingTask}
+        availableTags={availableTags}
+        onCreateTag={async (name, color) => {
+          if (!user) throw new Error('User not logged in');
+          const tag = await createTag(user.id, name, color);
+          if (!tag) throw new Error('Failed to create tag');
+          setAvailableTags([...availableTags, tag]);
+          return tag;
+        }}
+      />
     </SafeAreaView>
   );
 };
