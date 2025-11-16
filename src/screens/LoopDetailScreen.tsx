@@ -44,6 +44,7 @@ export const LoopDetailScreen: React.FC = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskWithDetails | null>(null);
   const [availableTags, setAvailableTags] = useState<Tag[]>([]);
+  const [showThemePrompt, setShowThemePrompt] = useState(false);
 
   const formatNextReset = (nextResetAt: string | null) => {
     if (!nextResetAt) return 'Not scheduled';
@@ -65,6 +66,31 @@ export const LoopDetailScreen: React.FC = () => {
     } else {
       return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
+  };
+
+  const safeHapticImpact = async (style: Haptics.ImpactFeedbackStyle) => {
+    try {
+      if (Platform.OS !== 'web') {
+        await Haptics.impactAsync(style);
+      }
+    } catch (error) {
+      console.warn('[LoopDetail] Haptics not available:', error);
+    }
+  };
+
+  const checkAndShowThemePrompt = async (currentLoopData: LoopWithTasks) => {
+    // Simplified - can be enhanced later
+    // For now, just return without showing prompt
+    return;
+  };
+
+  const handleThemePromptLater = async () => {
+    setShowThemePrompt(false);
+  };
+
+  const handleThemePromptCustomize = () => {
+    setShowThemePrompt(false);
+    navigation.navigate('Settings');
   };
 
   useEffect(() => {
@@ -234,36 +260,9 @@ export const LoopDetailScreen: React.FC = () => {
     }
   };
 
-  const handleEditTask = async (taskId: string, description: string, isOneTime: boolean, notes?: string) => {
-    try {
-      console.log('[LoopDetail] Editing task:', { taskId, description, isOneTime, notes });
-      const { error } = await supabase
-        .from('tasks')
-        .update({
-          description,
-          notes: notes || null,
-          is_one_time: isOneTime,
-        })
-        .eq('id', taskId);
-
-      if (error) {
-        console.error('[LoopDetail] Database error:', error);
-        throw error;
-      }
-
-      console.log('[LoopDetail] Task updated successfully');
-      await loadLoopData();
-      setShowAddTaskModal(false);
-      setEditingTask(null);
-    } catch (error) {
-      console.error('[LoopDetail] Error updating task:', error);
-      throw error;
-    }
-  };
-
   const openAddTaskModal = () => {
     setEditingTask(null);
-    setShowAddTaskModal(true);
+    setModalVisible(true);
   };
 
   const handleLongPressTask = (task: Task) => {
@@ -832,6 +831,7 @@ export const LoopDetailScreen: React.FC = () => {
           return tag;
         }}
       />
+      </View>
     </SafeAreaView>
   );
 };
