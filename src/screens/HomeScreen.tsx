@@ -649,7 +649,7 @@ export const HomeScreen: React.FC = () => {
                   backgroundColor: colors.surface,
                   borderRadius: 12,
                   padding: 20,
-                  maxHeight: Platform.OS === 'web' ? '80vh' : undefined,
+                  ...(Platform.OS === 'web' ? { maxHeight: '80vh' } : {}),
                 }}
               >
                 <Text

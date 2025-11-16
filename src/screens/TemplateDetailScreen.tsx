@@ -96,6 +96,42 @@ export function TemplateDetailScreen({ navigation, route }: Props) {
 
     try {
       setAdding(true);
+
+      // Check if this template has already been added for this user
+      const { data: existingUsage, error: existingUsageError } = await supabase
+        .from('user_template_usage')
+        .select('loop_id')
+        .eq('user_id', user.id)
+        .eq('template_id', template.id);
+
+      if (existingUsageError) {
+        console.warn('[TemplateDetail] Error checking existing template usage:', existingUsageError);
+      }
+
+      if (existingUsage && existingUsage.length > 0) {
+        const existingLoopId = existingUsage[0].loop_id;
+
+        Alert.alert(
+          'Already Added',
+          `"${template.title}" is already in your loops.`,
+          [
+            {
+              text: 'View Loop',
+              onPress: () => {
+                navigation.navigate('LoopDetail', { loopId: existingLoopId });
+              },
+            },
+            {
+              text: 'OK',
+              style: 'cancel',
+            },
+          ]
+        );
+
+        setAdding(false);
+        return;
+      }
+
       console.log('[TemplateDetail] Creating loop...');
 
       // Create a new loop based on this template
