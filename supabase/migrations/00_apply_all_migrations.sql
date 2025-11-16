@@ -5,7 +5,9 @@
 
 -- 1. Add loop_type column to loops table
 ALTER TABLE loops ADD COLUMN IF NOT EXISTS loop_type TEXT DEFAULT 'personal';
-ALTER TABLE loops ADD CONSTRAINT IF NOT EXISTS check_loop_type CHECK (loop_type IN ('personal', 'work', 'daily', 'shared'));
+-- Supabase/Postgres doesn't support IF NOT EXISTS for ADD CONSTRAINT, so we drop then re-create safely
+ALTER TABLE loops DROP CONSTRAINT IF EXISTS check_loop_type;
+ALTER TABLE loops ADD CONSTRAINT check_loop_type CHECK (loop_type IN ('personal', 'work', 'daily', 'shared'));
 CREATE INDEX IF NOT EXISTS idx_loops_loop_type ON loops(loop_type);
 
 -- 1b. Add next_reset_at column to loops table for scheduled resets
@@ -90,7 +92,7 @@ CREATE POLICY "Users can modify own streak" ON user_streaks
 
 -- 9. Initialize streaks for existing users
 INSERT INTO user_streaks (user_id, current_streak, longest_streak, last_completed_date, updated_at)
-SELECT DISTINCT id, 0, 0, NULL, NOW()
+SELECT DISTINCT id, 0, 0, NULL::timestamp with time zone, NOW()
 FROM auth.users
 ON CONFLICT (user_id) DO NOTHING;
 

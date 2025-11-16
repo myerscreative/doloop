@@ -406,12 +406,13 @@ export const LoopDetailScreen: React.FC = () => {
   const oneTimeTasks = loopData.tasks.filter(task => task.is_one_time);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <View style={{ 
-        flex: 1, 
-        alignSelf: 'center', 
-        width: '100%', 
-        maxWidth: 600 
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
+      <View style={{
+        flex: 1,
+        maxWidth: 600,
+        width: '100%',
+        alignSelf: 'center',
+        backgroundColor: '#f5f5f5',
       }}>
         {/* Back Button */}
         <View style={{

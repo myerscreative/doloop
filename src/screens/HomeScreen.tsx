@@ -235,12 +235,13 @@ export const HomeScreen: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <View style={{ 
-        flex: 1, 
-        alignSelf: 'center', 
-        width: '100%', 
-        maxWidth: 600 
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
+      <View style={{
+        flex: 1,
+        maxWidth: 600,
+        width: '100%',
+        alignSelf: 'center',
+        backgroundColor: '#f5f5f5',
       }}>
         {/* Header */}
         <Header currentDate={currentDate} streak={totalStreak} colors={colors} />

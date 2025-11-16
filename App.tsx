@@ -7,6 +7,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useFonts, Inter_400Regular, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
+import { Platform } from 'react-native';
+import { useState, useEffect, useCallback } from 'react';
 
 import { ThemeProvider } from './src/contexts/ThemeContext';
 import { AuthProvider } from './src/contexts/AuthContext';
@@ -47,15 +49,51 @@ export default function App() {
     Inter_700Bold,
   });
 
-  if (!fontsLoaded) {
-    return null; // or <AppLoading /> if you prefer
+  // ==== Navigation state persistence ====
+  const NAV_STATE_KEY = 'NAV_STATE_v1';
+  const [initialNavState, setInitialNavState] = useState();
+  const [isNavReady, setIsNavReady] = useState(false);
+
+  // Hydrate nav state for web (persist across reloads)
+  useEffect(() => {
+    // Only run on web
+    if (Platform.OS === 'web') {
+      const restoreState = async () => {
+        try {
+          const savedState = localStorage.getItem(NAV_STATE_KEY);
+          if (savedState) {
+            setInitialNavState(JSON.parse(savedState));
+          }
+        } catch {}
+        setIsNavReady(true);
+      };
+      restoreState();
+    } else {
+      setIsNavReady(true);
+    }
+  }, []);
+
+  const handleStateChange = useCallback((state) => {
+    if (Platform.OS === 'web') {
+      try {
+        localStorage.setItem(NAV_STATE_KEY, JSON.stringify(state));
+      } catch {}
+    }
+  }, []);
+
+  if (!fontsLoaded || !isNavReady) {
+    return null; // or loading spinner
   }
 
   return (
     <SafeAreaProvider>
       <ThemeProvider>
         <AuthProvider>
-          <NavigationContainer linking={linking}>
+          <NavigationContainer
+            linking={linking}
+            initialState={initialNavState}
+            onStateChange={handleStateChange}
+          >
             <Stack.Navigator
               initialRouteName="Onboarding"
               screenOptions={{
