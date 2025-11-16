@@ -19,6 +19,7 @@ import { TemplateLibraryScreen } from './src/screens/TemplateLibraryScreen';
 import { TemplateDetailScreen } from './src/screens/TemplateDetailScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
+import AILoopCreationScreen from './src/screens/AILoopCreationScreen';
 
 export type RootStackParamList = {
   Onboarding: undefined;
@@ -28,6 +29,7 @@ export type RootStackParamList = {
   TemplateLibrary: undefined;
   TemplateDetail: { templateId: string };
   Settings: undefined;
+  AILoopCreation: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -109,6 +111,7 @@ export default function App() {
               <Stack.Screen name="TemplateLibrary" component={TemplateLibraryScreen} />
               <Stack.Screen name="TemplateDetail" component={TemplateDetailScreen} />
               <Stack.Screen name="Settings" component={SettingsScreen} />
+              <Stack.Screen name="AILoopCreation" component={AILoopCreationScreen} />
             </Stack.Navigator>
           </NavigationContainer>
           <StatusBar style="auto" />

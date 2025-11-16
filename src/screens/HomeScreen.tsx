@@ -400,6 +400,47 @@ export const HomeScreen: React.FC = () => {
               Discover Loops
             </Text>
 
+            {/* AI Loop Creator Card */}
+            <TouchableOpacity
+              style={{
+                backgroundColor: '#10b981',
+                padding: 20,
+                borderRadius: 16,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.2,
+                shadowRadius: 8,
+                elevation: 4,
+                marginBottom: 16,
+              }}
+              onPress={() => navigation.navigate('AILoopCreation')}
+            >
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                marginBottom: 8,
+              }}>
+                <Text style={{ fontSize: 28, marginRight: 12 }}>✨</Text>
+                <Text style={{
+                  fontSize: 20,
+                  fontWeight: 'bold',
+                  color: '#fff',
+                  flex: 1,
+                }}>
+                  AI Loop Creator
+                </Text>
+                <Text style={{ fontSize: 20, color: '#fff' }}>→</Text>
+              </View>
+              <Text style={{
+                fontSize: 14,
+                color: '#fff',
+                opacity: 0.9,
+                lineHeight: 20,
+              }}>
+                Describe what you need and let AI create a custom loop for you
+              </Text>
+            </TouchableOpacity>
+
             <TouchableOpacity
               style={{
                 backgroundColor: '#667eea',
