@@ -14,8 +14,10 @@ import {
   Modal,
   ScrollView,
   Image,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../../App';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -168,41 +170,89 @@ export function AdminCreatorsScreen({ navigation }: Props) {
     );
   }
 
-  const renderCreator = ({ item }: { item: TemplateCreator }) => (
-    <View style={[styles.creatorCard, { backgroundColor: colors.card }]}>
-      <View style={styles.creatorContent}>
-        {item.photo_url ? (
-          <Image source={{ uri: item.photo_url }} style={styles.creatorPhoto} />
-        ) : (
-          <View style={[styles.creatorPhotoPlaceholder, { backgroundColor: colors.primary + '30' }]}>
-            <Ionicons name="person" size={32} color={colors.primary} />
+  const renderCreator = ({ item }: { item: TemplateCreator }) => {
+    const scaleAnim = React.useRef(new Animated.Value(1)).current;
+
+    const handlePressIn = () => {
+      Animated.spring(scaleAnim, {
+        toValue: 0.98,
+        useNativeDriver: true,
+      }).start();
+    };
+
+    const handlePressOut = () => {
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+      }).start();
+    };
+
+    return (
+      <Animated.View style={[{ transform: [{ scale: scaleAnim }] }]}>
+        <TouchableOpacity
+          style={[styles.creatorCard, { backgroundColor: colors.card }]}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          activeOpacity={0.95}
+          onPress={() => {
+            if (Platform.OS !== 'web') {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }
+          }}
+        >
+          <View style={styles.creatorContent}>
+            {item.photo_url ? (
+              <Image source={{ uri: item.photo_url }} style={styles.creatorPhoto} />
+            ) : (
+              <View style={[styles.creatorPhotoPlaceholder, { backgroundColor: colors.primary + '30' }]}>
+                <Ionicons name="person" size={32} color={colors.primary} />
+              </View>
+            )}
+            <View style={styles.creatorInfo}>
+              <Text style={[styles.creatorName, { color: colors.text }]}>{item.name}</Text>
+              {item.title && (
+                <Text style={[styles.creatorTitle, { color: colors.textSecondary }]}>{item.title}</Text>
+              )}
+              <Text style={[styles.creatorBio, { color: colors.textSecondary }]} numberOfLines={2}>
+                {item.bio}
+              </Text>
+              {item.website_url && (
+                <Text style={[styles.creatorWebsite, { color: colors.primary }]} numberOfLines={1}>
+                  {item.website_url}
+                </Text>
+              )}
+            </View>
+            <View style={styles.creatorActions}>
+              <TouchableOpacity
+                onPress={(e) => {
+                  e.stopPropagation();
+                  if (Platform.OS !== 'web') {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }
+                  handleOpenModal(item);
+                }}
+                style={styles.actionButton}
+              >
+                <Ionicons name="create-outline" size={20} color={colors.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={(e) => {
+                  e.stopPropagation();
+                  if (Platform.OS !== 'web') {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  }
+                  handleDelete(item);
+                }}
+                style={styles.actionButton}
+              >
+                <Ionicons name="trash-outline" size={20} color="#FF1E88" />
+              </TouchableOpacity>
+            </View>
           </View>
-        )}
-        <View style={styles.creatorInfo}>
-          <Text style={[styles.creatorName, { color: colors.text }]}>{item.name}</Text>
-          {item.title && (
-            <Text style={[styles.creatorTitle, { color: colors.textSecondary }]}>{item.title}</Text>
-          )}
-          <Text style={[styles.creatorBio, { color: colors.textSecondary }]} numberOfLines={2}>
-            {item.bio}
-          </Text>
-          {item.website_url && (
-            <Text style={[styles.creatorWebsite, { color: colors.primary }]} numberOfLines={1}>
-              {item.website_url}
-            </Text>
-          )}
-        </View>
-        <View style={styles.creatorActions}>
-          <TouchableOpacity onPress={() => handleOpenModal(item)} style={styles.actionButton}>
-            <Ionicons name="create-outline" size={20} color={colors.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => handleDelete(item)} style={styles.actionButton}>
-            <Ionicons name="trash-outline" size={20} color="#FF1E88" />
-          </TouchableOpacity>
-        </View>
-      </View>
-    </View>
-  );
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
@@ -217,11 +267,21 @@ export function AdminCreatorsScreen({ navigation }: Props) {
         <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
+          <TouchableOpacity onPress={() => {
+            if (Platform.OS !== 'web') {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }
+            navigation.goBack();
+          }}>
             <Ionicons name="arrow-back" size={24} color={colors.text} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: colors.text }]}>Manage Creators</Text>
-          <TouchableOpacity onPress={() => handleOpenModal()}>
+          <TouchableOpacity onPress={() => {
+            if (Platform.OS !== 'web') {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }
+            handleOpenModal();
+          }}>
             <Ionicons name="add-circle" size={28} color={colors.primary} />
           </TouchableOpacity>
         </View>

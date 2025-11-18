@@ -9,9 +9,11 @@ import {
   SafeAreaView,
   StatusBar,
   Platform,
+  Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../../App';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -97,6 +99,52 @@ export function AdminDashboardScreen({ navigation }: Props) {
     </View>
   );
 
+  const MenuItem = ({ item }: { item: typeof menuItems[0] }) => {
+    const scaleAnim = React.useRef(new Animated.Value(1)).current;
+
+    const handlePressIn = () => {
+      Animated.spring(scaleAnim, {
+        toValue: 0.97,
+        useNativeDriver: true,
+      }).start();
+    };
+
+    const handlePressOut = () => {
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+      }).start();
+    };
+
+    return (
+      <Animated.View style={[{ transform: [{ scale: scaleAnim }] }]}>
+        <TouchableOpacity
+          style={[styles.menuItem, { backgroundColor: colors.card }]}
+          onPress={() => {
+            if (Platform.OS !== 'web') {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }
+            navigation.navigate(item.screen as any);
+          }}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          activeOpacity={0.7}
+        >
+          <LinearGradient
+            colors={[item.color + '30', item.color + '10']}
+            style={styles.menuIconContainer}
+          >
+            <Ionicons name={item.icon} size={32} color={item.color} />
+          </LinearGradient>
+          <Text style={[styles.menuTitle, { color: colors.text }]}>{item.title}</Text>
+          <Text style={[styles.menuDescription, { color: colors.textSecondary }]}>
+            {item.description}
+          </Text>
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  };
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar barStyle={colors.statusBar} />
@@ -112,14 +160,24 @@ export function AdminDashboardScreen({ navigation }: Props) {
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.goBack()}
+            onPress={() => {
+              if (Platform.OS !== 'web') {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }
+              navigation.goBack();
+            }}
           >
             <Ionicons name="arrow-back" size={24} color={colors.text} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: colors.text }]}>Admin Dashboard</Text>
           <TouchableOpacity
             style={styles.refreshButton}
-            onPress={loadStats}
+            onPress={() => {
+              if (Platform.OS !== 'web') {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }
+              loadStats();
+            }}
           >
             <Ionicons name="refresh" size={24} color={colors.text} />
           </TouchableOpacity>
@@ -204,22 +262,7 @@ export function AdminDashboardScreen({ navigation }: Props) {
         <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 32 }]}>Management</Text>
         <View style={styles.menuGrid}>
           {menuItems.map((item, index) => (
-            <TouchableOpacity
-              key={index}
-              style={[styles.menuItem, { backgroundColor: colors.card }]}
-              onPress={() => navigation.navigate(item.screen as any)}
-            >
-              <LinearGradient
-                colors={[item.color + '30', item.color + '10']}
-                style={styles.menuIconContainer}
-              >
-                <Ionicons name={item.icon} size={32} color={item.color} />
-              </LinearGradient>
-              <Text style={[styles.menuTitle, { color: colors.text }]}>{item.title}</Text>
-              <Text style={[styles.menuDescription, { color: colors.textSecondary }]}>
-                {item.description}
-              </Text>
-            </TouchableOpacity>
+            <MenuItem key={index} item={item} />
           ))}
         </View>
       </ScrollView>
