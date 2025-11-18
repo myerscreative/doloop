@@ -1,10 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { RootStackParamList } from '../../App';
 import { BeeIcon } from './native/BeeIcon';
+import { useAdmin } from '../hooks/useAdmin';
 
 type HeaderNavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -16,11 +18,13 @@ interface HeaderProps {
     textSecondary: string;
     border: string;
     accentYellow: string;
+    primary: string;
   };
 }
 
 export const Header: React.FC<HeaderProps> = ({ currentDate, streak = 0, colors }) => {
   const navigation = useNavigation<HeaderNavigationProp>();
+  const { isAdmin } = useAdmin();
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -75,6 +79,22 @@ export const Header: React.FC<HeaderProps> = ({ currentDate, streak = 0, colors 
                 🔥 {streak}
               </Text>
             </View>
+          )}
+          {isAdmin && (
+            <TouchableOpacity
+              onPress={() => {
+                if (Platform.OS !== 'web') {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }
+                navigation.navigate('AdminDashboard');
+              }}
+              style={styles.settingsButton}
+              accessible={true}
+              accessibilityRole="button"
+              accessibilityLabel="Open admin dashboard"
+            >
+              <Ionicons name="shield-checkmark" size={24} color={colors.primary} />
+            </TouchableOpacity>
           )}
           <TouchableOpacity
             onPress={() => navigation.navigate('Settings')}
