@@ -39,6 +39,8 @@ import {
   TemplateGroup,
 } from '../../lib/admin';
 import { LoopTemplate, TemplateCreator, TemplateTask } from '../../types/loop';
+import { AdminHelpModal } from '../../components/AdminHelpModal';
+import { ADMIN_HELP_CONTENT } from '../../constants/adminHelp';
 
 type AdminTemplatesNavigationProp = NativeStackNavigationProp<RootStackParamList, 'AdminTemplates'>;
 
@@ -70,6 +72,7 @@ export function AdminTemplatesScreen({ navigation }: Props) {
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [showGroupModal, setShowGroupModal] = useState(false);
+  const [showHelpModal, setShowHelpModal] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<LoopTemplate | null>(null);
   const [editingGroup, setEditingGroup] = useState<TemplateGroup | null>(null);
   const [groupName, setGroupName] = useState('');
@@ -521,14 +524,27 @@ export function AdminTemplatesScreen({ navigation }: Props) {
             <Ionicons name="arrow-back" size={24} color={colors.text} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: colors.text }]}>Manage Templates</Text>
-          <TouchableOpacity onPress={() => {
-            if (Platform.OS !== 'web') {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }
-            handleOpenModal();
-          }}>
-            <Ionicons name="add-circle" size={28} color={colors.primary} />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              onPress={() => {
+                if (Platform.OS !== 'web') {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }
+                setShowHelpModal(true);
+              }}
+              style={styles.helpButton}
+            >
+              <Ionicons name="help-circle-outline" size={24} color={colors.textSecondary} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => {
+              if (Platform.OS !== 'web') {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }
+              handleOpenModal();
+            }}>
+              <Ionicons name="add-circle" size={28} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Search Field */}
@@ -872,6 +888,13 @@ export function AdminTemplatesScreen({ navigation }: Props) {
             </ScrollView>
           </SafeAreaView>
         </Modal>
+
+        {/* Help Modal */}
+        <AdminHelpModal
+          visible={showHelpModal}
+          onClose={() => setShowHelpModal(false)}
+          content={ADMIN_HELP_CONTENT.templates}
+        />
       </View>
       </View>
     </SafeAreaView>
@@ -896,6 +919,14 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_700Bold',
     flex: 1,
     textAlign: 'center',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  helpButton: {
+    padding: 4,
   },
   listContent: {
     padding: 20,

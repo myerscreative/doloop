@@ -18,6 +18,8 @@ import { RootStackParamList } from '../../../App';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAdmin } from '../../hooks/useAdmin';
 import { getTemplatePerformance, TemplatePerformance } from '../../lib/admin';
+import { AdminHelpModal } from '../../components/AdminHelpModal';
+import { ADMIN_HELP_CONTENT } from '../../constants/adminHelp';
 
 type AdminAffiliatesNavigationProp = NativeStackNavigationProp<RootStackParamList, 'AdminAffiliates'>;
 
@@ -33,6 +35,7 @@ export function AdminAffiliatesScreen({ navigation }: Props) {
   const [templates, setTemplates] = useState<TemplatePerformance[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState<SortKey>('clicks');
+  const [showHelpModal, setShowHelpModal] = useState(false);
 
   useEffect(() => {
     if (!adminLoading && !isAdmin) {
@@ -181,14 +184,27 @@ export function AdminAffiliatesScreen({ navigation }: Props) {
             <Ionicons name="arrow-back" size={24} color={colors.text} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: colors.text }]}>Affiliate Performance</Text>
-          <TouchableOpacity onPress={() => {
-            if (Platform.OS !== 'web') {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }
-            loadData();
-          }}>
-            <Ionicons name="refresh" size={24} color={colors.text} />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              onPress={() => {
+                if (Platform.OS !== 'web') {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }
+                setShowHelpModal(true);
+              }}
+              style={styles.helpButton}
+            >
+              <Ionicons name="help-circle-outline" size={24} color={colors.textSecondary} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => {
+              if (Platform.OS !== 'web') {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }
+              loadData();
+            }}>
+              <Ionicons name="refresh" size={24} color={colors.text} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Summary Cards */}
@@ -283,6 +299,13 @@ export function AdminAffiliatesScreen({ navigation }: Props) {
             }
           />
         )}
+
+        {/* Help Modal */}
+        <AdminHelpModal
+          visible={showHelpModal}
+          onClose={() => setShowHelpModal(false)}
+          content={ADMIN_HELP_CONTENT.affiliates}
+        />
       </View>
       </View>
     </SafeAreaView>
@@ -307,6 +330,14 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_700Bold',
     flex: 1,
     textAlign: 'center',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  helpButton: {
+    padding: 4,
   },
   summaryContainer: {
     flexDirection: 'row',

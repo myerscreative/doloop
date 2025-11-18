@@ -19,6 +19,8 @@ import { RootStackParamList } from '../../../App';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAdmin } from '../../hooks/useAdmin';
 import { getUserSummary, UserSummary, toggleUserAdminStatus } from '../../lib/admin';
+import { AdminHelpModal } from '../../components/AdminHelpModal';
+import { ADMIN_HELP_CONTENT } from '../../constants/adminHelp';
 
 type AdminUsersNavigationProp = NativeStackNavigationProp<RootStackParamList, 'AdminUsers'>;
 
@@ -31,6 +33,7 @@ export function AdminUsersScreen({ navigation }: Props) {
   const { isAdmin, loading: adminLoading } = useAdmin();
   const [users, setUsers] = useState<UserSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showHelpModal, setShowHelpModal] = useState(false);
 
   useEffect(() => {
     if (!adminLoading && !isAdmin) {
@@ -199,14 +202,27 @@ export function AdminUsersScreen({ navigation }: Props) {
             <Ionicons name="arrow-back" size={24} color={colors.text} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: colors.text }]}>User Management</Text>
-          <TouchableOpacity onPress={() => {
-            if (Platform.OS !== 'web') {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }
-            loadUsers();
-          }}>
-            <Ionicons name="refresh" size={24} color={colors.text} />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              onPress={() => {
+                if (Platform.OS !== 'web') {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }
+                setShowHelpModal(true);
+              }}
+              style={styles.helpButton}
+            >
+              <Ionicons name="help-circle-outline" size={24} color={colors.textSecondary} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => {
+              if (Platform.OS !== 'web') {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }
+              loadUsers();
+            }}>
+              <Ionicons name="refresh" size={24} color={colors.text} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Stats Summary */}
@@ -247,6 +263,13 @@ export function AdminUsersScreen({ navigation }: Props) {
             }
           />
         )}
+
+        {/* Help Modal */}
+        <AdminHelpModal
+          visible={showHelpModal}
+          onClose={() => setShowHelpModal(false)}
+          content={ADMIN_HELP_CONTENT.users}
+        />
       </View>
       </View>
     </SafeAreaView>
@@ -271,6 +294,14 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_700Bold',
     flex: 1,
     textAlign: 'center',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  helpButton: {
+    padding: 4,
   },
   summaryContainer: {
     flexDirection: 'row',

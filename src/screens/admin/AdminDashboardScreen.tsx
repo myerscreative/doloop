@@ -19,6 +19,8 @@ import { RootStackParamList } from '../../../App';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAdmin } from '../../hooks/useAdmin';
 import { getAdminDashboardStats, DashboardStats } from '../../lib/admin';
+import { AdminHelpModal } from '../../components/AdminHelpModal';
+import { ADMIN_HELP_CONTENT } from '../../constants/adminHelp';
 
 type AdminDashboardNavigationProp = NativeStackNavigationProp<RootStackParamList, 'AdminDashboard'>;
 
@@ -31,6 +33,7 @@ export function AdminDashboardScreen({ navigation }: Props) {
   const { isAdmin, loading: adminLoading } = useAdmin();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showHelpModal, setShowHelpModal] = useState(false);
 
   useEffect(() => {
     if (!adminLoading && !isAdmin) {
@@ -170,17 +173,30 @@ export function AdminDashboardScreen({ navigation }: Props) {
             <Ionicons name="arrow-back" size={24} color={colors.text} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: colors.text }]}>Admin Dashboard</Text>
-          <TouchableOpacity
-            style={styles.refreshButton}
-            onPress={() => {
-              if (Platform.OS !== 'web') {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              }
-              loadStats();
-            }}
-          >
-            <Ionicons name="refresh" size={24} color={colors.text} />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              onPress={() => {
+                if (Platform.OS !== 'web') {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }
+                setShowHelpModal(true);
+              }}
+              style={styles.helpButton}
+            >
+              <Ionicons name="help-circle-outline" size={24} color={colors.textSecondary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.refreshButton}
+              onPress={() => {
+                if (Platform.OS !== 'web') {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }
+                loadStats();
+              }}
+            >
+              <Ionicons name="refresh" size={24} color={colors.text} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Stats Grid */}
@@ -266,6 +282,13 @@ export function AdminDashboardScreen({ navigation }: Props) {
           ))}
         </View>
       </ScrollView>
+
+      {/* Help Modal */}
+      <AdminHelpModal
+        visible={showHelpModal}
+        onClose={() => setShowHelpModal(false)}
+        content={ADMIN_HELP_CONTENT.dashboard}
+      />
       </View>
     </SafeAreaView>
   );
@@ -307,6 +330,14 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_700Bold',
     flex: 1,
     textAlign: 'center',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  helpButton: {
+    padding: 4,
   },
   sectionTitle: {
     fontSize: 18,
