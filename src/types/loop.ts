@@ -54,13 +54,6 @@ export interface UserStreak {
   updated_at: string;
 }
 
-export interface LoopMember {
-  loop_id: string;
-  user_id: string;
-  role: 'owner' | 'member';
-  joined_at: string;
-}
-
 /**
  * Loop Library / Template Types
  */
