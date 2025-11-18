@@ -100,7 +100,7 @@ export function AdminUsersScreen({ navigation }: Props) {
     return new Date(dateString).toLocaleDateString();
   };
 
-  const renderUser = ({ item }: { item: UserSummary }) => {
+  const UserCard = React.memo(({ item }: { item: UserSummary }) => {
     const scaleAnim = React.useRef(new Animated.Value(1)).current;
 
     const handlePressIn = () => {
@@ -173,7 +173,9 @@ export function AdminUsersScreen({ navigation }: Props) {
         </TouchableOpacity>
       </Animated.View>
     );
-  };
+  });
+
+  const renderUser = ({ item }: { item: UserSummary }) => <UserCard item={item} />;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>

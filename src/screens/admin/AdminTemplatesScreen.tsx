@@ -29,6 +29,14 @@ import {
   getAllTemplateCreators,
   getTemplateTasks,
   CreateLoopTemplateInput,
+  getAllTemplateGroups,
+  createTemplateGroup,
+  updateTemplateGroup,
+  deleteTemplateGroup,
+  assignTemplateToGroup,
+  unassignTemplateFromGroup,
+  getGroupsForTemplate,
+  TemplateGroup,
 } from '../../lib/admin';
 import { LoopTemplate, TemplateCreator, TemplateTask } from '../../types/loop';
 
@@ -55,9 +63,17 @@ export function AdminTemplatesScreen({ navigation }: Props) {
   const { isAdmin, loading: adminLoading } = useAdmin();
   const [templates, setTemplates] = useState<LoopTemplate[]>([]);
   const [creators, setCreators] = useState<TemplateCreator[]>([]);
+  const [groups, setGroups] = useState<TemplateGroup[]>([]);
+  const [templateGroups, setTemplateGroups] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [showGroupModal, setShowGroupModal] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<LoopTemplate | null>(null);
+  const [editingGroup, setEditingGroup] = useState<TemplateGroup | null>(null);
+  const [groupName, setGroupName] = useState('');
+  const [groupDescription, setGroupDescription] = useState('');
   const [formData, setFormData] = useState<TemplateFormData>({
     creator_id: '',
     title: '',
@@ -82,7 +98,7 @@ export function AdminTemplatesScreen({ navigation }: Props) {
 
   const loadData = async () => {
     setLoading(true);
-    await Promise.all([loadTemplates(), loadCreators()]);
+    await Promise.all([loadTemplates(), loadCreators(), loadGroups()]);
     setLoading(false);
   };
 
@@ -94,6 +110,8 @@ export function AdminTemplatesScreen({ navigation }: Props) {
 
     if (!error && data) {
       setTemplates(data);
+      // Load group assignments for each template
+      loadTemplateGroups(data.map(t => t.id));
     }
   };
 
@@ -101,6 +119,46 @@ export function AdminTemplatesScreen({ navigation }: Props) {
     const data = await getAllTemplateCreators();
     setCreators(data);
   };
+
+  const loadGroups = async () => {
+    const data = await getAllTemplateGroups();
+    setGroups(data);
+  };
+
+  const loadTemplateGroups = async (templateIds: string[]) => {
+    const groupMap: Record<string, string[]> = {};
+
+    for (const templateId of templateIds) {
+      const templateGroupsData = await getGroupsForTemplate(templateId);
+      groupMap[templateId] = templateGroupsData.map(g => g.id);
+    }
+
+    setTemplateGroups(groupMap);
+  };
+
+  // Filter templates based on search and group
+  const filteredTemplates = React.useMemo(() => {
+    let filtered = templates;
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(t =>
+        t.title.toLowerCase().includes(query) ||
+        t.description.toLowerCase().includes(query) ||
+        t.book_course_title.toLowerCase().includes(query)
+      );
+    }
+
+    // Filter by selected group
+    if (selectedGroup) {
+      filtered = filtered.filter(t =>
+        templateGroups[t.id]?.includes(selectedGroup)
+      );
+    }
+
+    return filtered;
+  }, [templates, searchQuery, selectedGroup, templateGroups]);
 
   const handleOpenModal = async (template?: LoopTemplate) => {
     if (template) {
@@ -263,6 +321,99 @@ export function AdminTemplatesScreen({ navigation }: Props) {
     setFormData({ ...formData, tasks: newTasks });
   };
 
+  // Group Management Functions
+  const handleOpenGroupModal = (group?: TemplateGroup) => {
+    if (group) {
+      setEditingGroup(group);
+      setGroupName(group.name);
+      setGroupDescription(group.description || '');
+    } else {
+      setEditingGroup(null);
+      setGroupName('');
+      setGroupDescription('');
+    }
+    setShowGroupModal(true);
+  };
+
+  const handleCloseGroupModal = () => {
+    setShowGroupModal(false);
+    setEditingGroup(null);
+    setGroupName('');
+    setGroupDescription('');
+  };
+
+  const handleSaveGroup = async () => {
+    if (!groupName.trim()) {
+      Alert.alert('Error', 'Group name is required');
+      return;
+    }
+
+    try {
+      if (editingGroup) {
+        await updateTemplateGroup(editingGroup.id, {
+          name: groupName,
+          description: groupDescription || null,
+          display_order: editingGroup.display_order,
+        });
+        Alert.alert('Success', 'Group updated successfully');
+      } else {
+        await createTemplateGroup({
+          name: groupName,
+          description: groupDescription || null,
+          display_order: groups.length,
+        });
+        Alert.alert('Success', 'Group created successfully');
+      }
+      handleCloseGroupModal();
+      loadGroups();
+    } catch (error) {
+      console.error('Error saving group:', error);
+      Alert.alert('Error', 'Failed to save group');
+    }
+  };
+
+  const handleDeleteGroup = async (group: TemplateGroup) => {
+    if (Platform.OS === 'web') {
+      if (!confirm(`Are you sure you want to delete "${group.name}"?`)) return;
+    } else {
+      Alert.alert(
+        'Delete Group',
+        `Are you sure you want to delete "${group.name}"?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await deleteTemplateGroup(group.id);
+                Alert.alert('Success', 'Group deleted successfully');
+                loadGroups();
+                if (selectedGroup === group.id) {
+                  setSelectedGroup(null);
+                }
+              } catch (error) {
+                Alert.alert('Error', 'Failed to delete group');
+              }
+            },
+          },
+        ]
+      );
+      return;
+    }
+
+    try {
+      await deleteTemplateGroup(group.id);
+      alert('Group deleted successfully');
+      loadGroups();
+      if (selectedGroup === group.id) {
+        setSelectedGroup(null);
+      }
+    } catch (error) {
+      alert('Failed to delete group');
+    }
+  };
+
   if (adminLoading || !isAdmin) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -380,6 +531,76 @@ export function AdminTemplatesScreen({ navigation }: Props) {
           </TouchableOpacity>
         </View>
 
+        {/* Search Field */}
+        <View style={[styles.searchContainer, { backgroundColor: colors.background, borderColor: colors.border }]}>
+          <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
+          <TextInput
+            style={[styles.searchInput, { color: colors.text }]}
+            placeholder="Search templates..."
+            placeholderTextColor={colors.textSecondary}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Group Filters */}
+        <View style={styles.groupFiltersContainer}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.groupFilters}>
+            <TouchableOpacity
+              style={[
+                styles.groupChip,
+                !selectedGroup && { backgroundColor: colors.primary },
+                !selectedGroup && styles.groupChipActive,
+              ]}
+              onPress={() => {
+                if (Platform.OS !== 'web') {
+                  Haptics.selectionAsync();
+                }
+                setSelectedGroup(null);
+              }}
+            >
+              <Text style={[styles.groupChipText, !selectedGroup && { color: '#fff' }]}>All</Text>
+            </TouchableOpacity>
+            {groups.map(group => (
+              <TouchableOpacity
+                key={group.id}
+                style={[
+                  styles.groupChip,
+                  selectedGroup === group.id && { backgroundColor: colors.primary },
+                  selectedGroup === group.id && styles.groupChipActive,
+                ]}
+                onPress={() => {
+                  if (Platform.OS !== 'web') {
+                    Haptics.selectionAsync();
+                  }
+                  setSelectedGroup(group.id);
+                }}
+              >
+                <Text style={[styles.groupChipText, selectedGroup === group.id && { color: '#fff' }]}>
+                  {group.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              style={[styles.groupChip, { borderStyle: 'dashed', borderColor: colors.primary }]}
+              onPress={() => {
+                if (Platform.OS !== 'web') {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }
+                handleOpenGroupModal();
+              }}
+            >
+              <Ionicons name="add" size={16} color={colors.primary} />
+              <Text style={[styles.groupChipText, { color: colors.primary }]}>Manage Groups</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+
         {/* Templates List */}
         {loading ? (
           <View style={styles.loadingContainer}>
@@ -387,14 +608,14 @@ export function AdminTemplatesScreen({ navigation }: Props) {
           </View>
         ) : (
           <FlatList
-            data={templates}
+            data={filteredTemplates}
             renderItem={renderTemplate}
             keyExtractor={item => item.id}
             contentContainerStyle={styles.listContent}
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
                 <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                  No templates yet. Create one!
+                  {searchQuery || selectedGroup ? 'No templates match your filters' : 'No templates yet. Create one!'}
                 </Text>
               </View>
             }
@@ -539,6 +760,115 @@ export function AdminTemplatesScreen({ navigation }: Props) {
                 <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
                 <Text style={[styles.addTaskText, { color: colors.primary }]}>Add Task</Text>
               </TouchableOpacity>
+            </ScrollView>
+          </SafeAreaView>
+        </Modal>
+
+        {/* Modal for Group Management */}
+        <Modal
+          visible={showGroupModal}
+          animationType="slide"
+          onRequestClose={handleCloseGroupModal}
+          transparent={false}
+        >
+          <SafeAreaView style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={handleCloseGroupModal}>
+                <Ionicons name="close" size={28} color={colors.text} />
+              </TouchableOpacity>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
+                {editingGroup ? 'Edit Group' : 'Manage Groups'}
+              </Text>
+              <View style={{ width: 28 }} />
+            </View>
+
+            <ScrollView style={styles.modalContent} contentContainerStyle={styles.modalScrollContent}>
+              {/* Create/Edit Group Form */}
+              <View style={styles.groupFormSection}>
+                <Text style={[styles.label, { color: colors.text }]}>
+                  {editingGroup ? 'Edit Group' : 'Create New Group'}
+                </Text>
+
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text }]}
+                  value={groupName}
+                  onChangeText={setGroupName}
+                  placeholder="Group name (e.g., Productivity)"
+                  placeholderTextColor={colors.textSecondary}
+                />
+
+                <TextInput
+                  style={[styles.input, styles.textArea, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text }]}
+                  value={groupDescription}
+                  onChangeText={setGroupDescription}
+                  placeholder="Description (optional)"
+                  placeholderTextColor={colors.textSecondary}
+                  multiline
+                  numberOfLines={3}
+                />
+
+                <TouchableOpacity
+                  style={[styles.saveGroupButton, { backgroundColor: colors.primary }]}
+                  onPress={handleSaveGroup}
+                >
+                  <Text style={styles.saveGroupButtonText}>
+                    {editingGroup ? 'Update Group' : 'Create Group'}
+                  </Text>
+                </TouchableOpacity>
+
+                {editingGroup && (
+                  <TouchableOpacity
+                    style={styles.cancelEditButton}
+                    onPress={() => {
+                      setEditingGroup(null);
+                      setGroupName('');
+                      setGroupDescription('');
+                    }}
+                  >
+                    <Text style={[styles.cancelEditButtonText, { color: colors.textSecondary }]}>
+                      Cancel Edit
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Existing Groups List */}
+              <View style={styles.existingGroupsSection}>
+                <Text style={[styles.label, { color: colors.text, marginTop: 24, marginBottom: 12 }]}>
+                  Existing Groups
+                </Text>
+                {groups.map(group => (
+                  <View key={group.id} style={[styles.groupListItem, { backgroundColor: colors.card }]}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.groupListName, { color: colors.text }]}>{group.name}</Text>
+                      {group.description && (
+                        <Text style={[styles.groupListDescription, { color: colors.textSecondary }]}>
+                          {group.description}
+                        </Text>
+                      )}
+                    </View>
+                    <View style={styles.groupListActions}>
+                      <TouchableOpacity
+                        onPress={() => handleOpenGroupModal(group)}
+                        style={styles.groupActionButton}
+                      >
+                        <Ionicons name="create-outline" size={20} color={colors.primary} />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => handleDeleteGroup(group)}
+                        style={styles.groupActionButton}
+                      >
+                        <Ionicons name="trash-outline" size={20} color="#FF1E88" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+                {groups.length === 0 && (
+                  <Text style={[styles.emptyText, { color: colors.textSecondary, textAlign: 'center', padding: 20 }]}>
+                    No groups yet. Create one above!
+                  </Text>
+                )}
+              </View>
             </ScrollView>
           </SafeAreaView>
         </Modal>
@@ -726,5 +1056,100 @@ const styles = StyleSheet.create({
   addTaskText: {
     fontSize: 14,
     fontFamily: 'Inter_600SemiBold',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 20,
+    marginTop: 12,
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: 'Inter_400Regular',
+    padding: 4,
+  },
+  groupFiltersContainer: {
+    marginBottom: 8,
+  },
+  groupFilters: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  groupChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  groupChipActive: {
+    borderColor: 'transparent',
+  },
+  groupChipText: {
+    fontSize: 14,
+    fontFamily: 'Inter_600SemiBold',
+  },
+  groupFormSection: {
+    marginBottom: 24,
+  },
+  saveGroupButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  saveGroupButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontFamily: 'Inter_600SemiBold',
+  },
+  cancelEditButton: {
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  cancelEditButtonText: {
+    fontSize: 14,
+    fontFamily: 'Inter_400Regular',
+  },
+  existingGroupsSection: {
+    marginTop: 8,
+  },
+  groupListItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  groupListName: {
+    fontSize: 16,
+    fontFamily: 'Inter_600SemiBold',
+    marginBottom: 4,
+  },
+  groupListDescription: {
+    fontSize: 14,
+    fontFamily: 'Inter_400Regular',
+  },
+  groupListActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  groupActionButton: {
+    padding: 8,
   },
 });
