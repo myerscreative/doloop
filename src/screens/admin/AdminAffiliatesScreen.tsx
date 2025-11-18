@@ -9,8 +9,10 @@ import {
   SafeAreaView,
   StatusBar,
   Platform,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../../App';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -82,49 +84,76 @@ export function AdminAffiliatesScreen({ navigation }: Props) {
   }
 
   const renderTemplate = ({ item }: { item: TemplatePerformance }) => {
+    const scaleAnim = React.useRef(new Animated.Value(1)).current;
     const convRate = item.affiliate_clicks > 0
       ? ((item.affiliate_conversions / item.affiliate_clicks) * 100).toFixed(1)
       : '0.0';
 
+    const handlePressIn = () => {
+      Animated.spring(scaleAnim, {
+        toValue: 0.98,
+        useNativeDriver: true,
+      }).start();
+    };
+
+    const handlePressOut = () => {
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+      }).start();
+    };
+
     return (
-      <View style={[styles.templateCard, { backgroundColor: colors.card }]}>
-        <View style={styles.templateHeader}>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.templateTitle, { color: colors.text }]}>{item.title}</Text>
-            <Text style={[styles.templateCreator, { color: colors.textSecondary }]}>
-              by {item.creator_name}
-            </Text>
+      <Animated.View style={[{ transform: [{ scale: scaleAnim }] }]}>
+        <TouchableOpacity
+          style={[styles.templateCard, { backgroundColor: colors.card }]}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          activeOpacity={0.95}
+          onPress={() => {
+            if (Platform.OS !== 'web') {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }
+          }}
+        >
+          <View style={styles.templateHeader}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.templateTitle, { color: colors.text }]}>{item.title}</Text>
+              <Text style={[styles.templateCreator, { color: colors.textSecondary }]}>
+                by {item.creator_name}
+              </Text>
+            </View>
           </View>
-        </View>
-        <View style={styles.metricsGrid}>
-          <View style={styles.metricItem}>
-            <Ionicons name="link" size={16} color={colors.primary} />
-            <Text style={[styles.metricValue, { color: colors.text }]}>
-              {item.affiliate_clicks}
-            </Text>
-            <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Clicks</Text>
+          <View style={styles.metricsGrid}>
+            <View style={styles.metricItem}>
+              <Ionicons name="link" size={16} color={colors.primary} />
+              <Text style={[styles.metricValue, { color: colors.text }]}>
+                {item.affiliate_clicks}
+              </Text>
+              <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Clicks</Text>
+            </View>
+            <View style={styles.metricItem}>
+              <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
+              <Text style={[styles.metricValue, { color: colors.text }]}>
+                {item.affiliate_conversions}
+              </Text>
+              <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Conversions</Text>
+            </View>
+            <View style={styles.metricItem}>
+              <Ionicons name="trending-up" size={16} color="#FFA726" />
+              <Text style={[styles.metricValue, { color: colors.text }]}>{convRate}%</Text>
+              <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Rate</Text>
+            </View>
+            <View style={styles.metricItem}>
+              <Ionicons name="cash" size={16} color="#4CAF50" />
+              <Text style={[styles.metricValue, { color: colors.text }]}>
+                ${item.affiliate_revenue.toFixed(2)}
+              </Text>
+              <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Revenue</Text>
+            </View>
           </View>
-          <View style={styles.metricItem}>
-            <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
-            <Text style={[styles.metricValue, { color: colors.text }]}>
-              {item.affiliate_conversions}
-            </Text>
-            <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Conversions</Text>
-          </View>
-          <View style={styles.metricItem}>
-            <Ionicons name="trending-up" size={16} color="#FFA726" />
-            <Text style={[styles.metricValue, { color: colors.text }]}>{convRate}%</Text>
-            <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Rate</Text>
-          </View>
-          <View style={styles.metricItem}>
-            <Ionicons name="cash" size={16} color="#4CAF50" />
-            <Text style={[styles.metricValue, { color: colors.text }]}>
-              ${item.affiliate_revenue.toFixed(2)}
-            </Text>
-            <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Revenue</Text>
-          </View>
-        </View>
-      </View>
+        </TouchableOpacity>
+      </Animated.View>
     );
   };
 
@@ -141,11 +170,21 @@ export function AdminAffiliatesScreen({ navigation }: Props) {
         <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
+          <TouchableOpacity onPress={() => {
+            if (Platform.OS !== 'web') {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }
+            navigation.goBack();
+          }}>
             <Ionicons name="arrow-back" size={24} color={colors.text} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: colors.text }]}>Affiliate Performance</Text>
-          <TouchableOpacity onPress={loadData}>
+          <TouchableOpacity onPress={() => {
+            if (Platform.OS !== 'web') {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }
+            loadData();
+          }}>
             <Ionicons name="refresh" size={24} color={colors.text} />
           </TouchableOpacity>
         </View>
@@ -202,7 +241,12 @@ export function AdminAffiliatesScreen({ navigation }: Props) {
                     backgroundColor: sortBy === option.key ? colors.primary : colors.card,
                   },
                 ]}
-                onPress={() => setSortBy(option.key)}
+                onPress={() => {
+                  if (Platform.OS !== 'web') {
+                    Haptics.selectionAsync();
+                  }
+                  setSortBy(option.key);
+                }}
               >
                 <Text
                   style={[

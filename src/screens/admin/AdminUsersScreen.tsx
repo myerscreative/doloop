@@ -10,8 +10,10 @@ import {
   StatusBar,
   Platform,
   Alert,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../../App';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -98,44 +100,80 @@ export function AdminUsersScreen({ navigation }: Props) {
     return new Date(dateString).toLocaleDateString();
   };
 
-  const renderUser = ({ item }: { item: UserSummary }) => (
-    <View style={[styles.userCard, { backgroundColor: colors.card }]}>
-      <View style={styles.userContent}>
-        <View style={styles.userInfo}>
-          <View style={styles.userHeader}>
-            <Text style={[styles.userEmail, { color: colors.text }]}>{item.email}</Text>
-            {item.is_admin && (
-              <View style={[styles.adminBadge, { backgroundColor: colors.primary + '30' }]}>
-                <Ionicons name="shield-checkmark" size={12} color={colors.primary} />
-                <Text style={[styles.adminBadgeText, { color: colors.primary }]}>Admin</Text>
-              </View>
-            )}
-          </View>
-          <Text style={[styles.userMeta, { color: colors.textSecondary }]}>
-            Joined: {formatDate(item.created_at)}
-          </Text>
-          <View style={styles.userStats}>
-            <Text style={[styles.userStat, { color: colors.textSecondary }]}>
-              {item.loop_count} loops • {item.task_count} tasks • {item.templates_used} templates
-            </Text>
-          </View>
-          <Text style={[styles.userActivity, { color: colors.textSecondary }]}>
-            Last activity: {formatDate(item.last_activity)}
-          </Text>
-        </View>
+  const renderUser = ({ item }: { item: UserSummary }) => {
+    const scaleAnim = React.useRef(new Animated.Value(1)).current;
+
+    const handlePressIn = () => {
+      Animated.spring(scaleAnim, {
+        toValue: 0.98,
+        useNativeDriver: true,
+      }).start();
+    };
+
+    const handlePressOut = () => {
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+      }).start();
+    };
+
+    return (
+      <Animated.View style={[{ transform: [{ scale: scaleAnim }] }]}>
         <TouchableOpacity
-          style={[styles.adminButton, { backgroundColor: item.is_admin ? '#FF1E88' : colors.primary }]}
-          onPress={() => handleToggleAdmin(item)}
+          style={[styles.userCard, { backgroundColor: colors.card }]}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          activeOpacity={0.95}
+          onPress={() => {
+            if (Platform.OS !== 'web') {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }
+          }}
         >
-          <Ionicons
-            name={item.is_admin ? 'shield-outline' : 'shield-checkmark-outline'}
-            size={20}
-            color="#fff"
-          />
+          <View style={styles.userContent}>
+            <View style={styles.userInfo}>
+              <View style={styles.userHeader}>
+                <Text style={[styles.userEmail, { color: colors.text }]}>{item.email}</Text>
+                {item.is_admin && (
+                  <View style={[styles.adminBadge, { backgroundColor: colors.primary + '30' }]}>
+                    <Ionicons name="shield-checkmark" size={12} color={colors.primary} />
+                    <Text style={[styles.adminBadgeText, { color: colors.primary }]}>Admin</Text>
+                  </View>
+                )}
+              </View>
+              <Text style={[styles.userMeta, { color: colors.textSecondary }]}>
+                Joined: {formatDate(item.created_at)}
+              </Text>
+              <View style={styles.userStats}>
+                <Text style={[styles.userStat, { color: colors.textSecondary }]}>
+                  {item.loop_count} loops • {item.task_count} tasks • {item.templates_used} templates
+                </Text>
+              </View>
+              <Text style={[styles.userActivity, { color: colors.textSecondary }]}>
+                Last activity: {formatDate(item.last_activity)}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.adminButton, { backgroundColor: item.is_admin ? '#FF1E88' : colors.primary }]}
+              onPress={(e) => {
+                e.stopPropagation();
+                if (Platform.OS !== 'web') {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                }
+                handleToggleAdmin(item);
+              }}
+            >
+              <Ionicons
+                name={item.is_admin ? 'shield-outline' : 'shield-checkmark-outline'}
+                size={20}
+                color="#fff"
+              />
+            </TouchableOpacity>
+          </View>
         </TouchableOpacity>
-      </View>
-    </View>
-  );
+      </Animated.View>
+    );
+  };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
@@ -150,11 +188,21 @@ export function AdminUsersScreen({ navigation }: Props) {
         <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
+          <TouchableOpacity onPress={() => {
+            if (Platform.OS !== 'web') {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }
+            navigation.goBack();
+          }}>
             <Ionicons name="arrow-back" size={24} color={colors.text} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: colors.text }]}>User Management</Text>
-          <TouchableOpacity onPress={loadUsers}>
+          <TouchableOpacity onPress={() => {
+            if (Platform.OS !== 'web') {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }
+            loadUsers();
+          }}>
             <Ionicons name="refresh" size={24} color={colors.text} />
           </TouchableOpacity>
         </View>
