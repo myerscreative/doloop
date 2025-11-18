@@ -170,7 +170,7 @@ export function AdminCreatorsScreen({ navigation }: Props) {
     );
   }
 
-  const renderCreator = ({ item }: { item: TemplateCreator }) => {
+  const CreatorCard = React.memo(({ item }: { item: TemplateCreator }) => {
     const scaleAnim = React.useRef(new Animated.Value(1)).current;
 
     const handlePressIn = () => {
@@ -252,7 +252,9 @@ export function AdminCreatorsScreen({ navigation }: Props) {
         </TouchableOpacity>
       </Animated.View>
     );
-  };
+  });
+
+  const renderCreator = ({ item }: { item: TemplateCreator }) => <CreatorCard item={item} />;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>

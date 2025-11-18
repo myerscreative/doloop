@@ -500,3 +500,156 @@ export async function toggleUserAdminStatus(userId: string, isAdmin: boolean): P
     throw error;
   }
 }
+
+/**
+ * TEMPLATE GROUP MANAGEMENT
+ */
+
+export interface TemplateGroup {
+  id: string;
+  name: string;
+  description: string | null;
+  display_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function getAllTemplateGroups(): Promise<TemplateGroup[]> {
+  try {
+    const { data, error } = await supabase
+      .from('template_groups')
+      .select('*')
+      .order('display_order');
+
+    if (error) {
+      console.error('Error fetching template groups:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error in getAllTemplateGroups:', error);
+    return [];
+  }
+}
+
+export async function createTemplateGroup(
+  group: Omit<TemplateGroup, 'id' | 'created_at' | 'updated_at'>
+): Promise<TemplateGroup | null> {
+  try {
+    const { data, error } = await supabase
+      .from('template_groups')
+      .insert([group])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating template group:', error);
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error in createTemplateGroup:', error);
+    throw error;
+  }
+}
+
+export async function updateTemplateGroup(
+  id: string,
+  updates: Partial<Omit<TemplateGroup, 'id' | 'created_at' | 'updated_at'>>
+): Promise<TemplateGroup | null> {
+  try {
+    const { data, error } = await supabase
+      .from('template_groups')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating template group:', error);
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error in updateTemplateGroup:', error);
+    throw error;
+  }
+}
+
+export async function deleteTemplateGroup(id: string): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('template_groups')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting template group:', error);
+      throw error;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error in deleteTemplateGroup:', error);
+    throw error;
+  }
+}
+
+export async function assignTemplateToGroup(templateId: string, groupId: string): Promise<boolean> {
+  try {
+    const { error } = await supabase.rpc('assign_template_to_group', {
+      p_template_id: templateId,
+      p_group_id: groupId,
+    });
+
+    if (error) {
+      console.error('Error assigning template to group:', error);
+      throw error;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error in assignTemplateToGroup:', error);
+    throw error;
+  }
+}
+
+export async function unassignTemplateFromGroup(templateId: string, groupId: string): Promise<boolean> {
+  try {
+    const { error } = await supabase.rpc('unassign_template_from_group', {
+      p_template_id: templateId,
+      p_group_id: groupId,
+    });
+
+    if (error) {
+      console.error('Error unassigning template from group:', error);
+      throw error;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error in unassignTemplateFromGroup:', error);
+    throw error;
+  }
+}
+
+export async function getGroupsForTemplate(templateId: string): Promise<TemplateGroup[]> {
+  try {
+    const { data, error } = await supabase.rpc('get_groups_for_template', {
+      p_template_id: templateId,
+    });
+
+    if (error) {
+      console.error('Error fetching groups for template:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error in getGroupsForTemplate:', error);
+    return [];
+  }
+}

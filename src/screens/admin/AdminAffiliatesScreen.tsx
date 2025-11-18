@@ -83,7 +83,7 @@ export function AdminAffiliatesScreen({ navigation }: Props) {
     );
   }
 
-  const renderTemplate = ({ item }: { item: TemplatePerformance }) => {
+  const AffiliateCard = React.memo(({ item }: { item: TemplatePerformance }) => {
     const scaleAnim = React.useRef(new Animated.Value(1)).current;
     const convRate = item.affiliate_clicks > 0
       ? ((item.affiliate_conversions / item.affiliate_clicks) * 100).toFixed(1)
@@ -155,7 +155,9 @@ export function AdminAffiliatesScreen({ navigation }: Props) {
         </TouchableOpacity>
       </Animated.View>
     );
-  };
+  });
+
+  const renderTemplate = ({ item }: { item: TemplatePerformance }) => <AffiliateCard item={item} />;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
