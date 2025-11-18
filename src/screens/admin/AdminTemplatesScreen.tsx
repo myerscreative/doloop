@@ -271,7 +271,7 @@ export function AdminTemplatesScreen({ navigation }: Props) {
     );
   }
 
-  const renderTemplate = ({ item }: { item: LoopTemplate }) => {
+  const TemplateCard = React.memo(({ item }: { item: LoopTemplate }) => {
     const scaleAnim = React.useRef(new Animated.Value(1)).current;
 
     const handlePressIn = () => {
@@ -344,7 +344,9 @@ export function AdminTemplatesScreen({ navigation }: Props) {
         </TouchableOpacity>
       </Animated.View>
     );
-  };
+  });
+
+  const renderTemplate = ({ item }: { item: LoopTemplate }) => <TemplateCard item={item} />;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
