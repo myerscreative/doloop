@@ -20,6 +20,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { RootStackParamList } from '../../App';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useAdmin } from '../hooks/useAdmin';
 import { VibeStyle } from '../types/onboarding';
 import { Colors } from '../constants/Colors';
 
@@ -28,6 +29,7 @@ type SettingsScreenNavigationProp = NativeStackNavigationProp<RootStackParamList
 export const SettingsScreen: React.FC = () => {
   const { colors, vibe, setVibe } = useTheme();
   const { user, signOut } = useAuth();
+  const { isAdmin } = useAdmin();
   const navigation = useNavigation<SettingsScreenNavigationProp>();
 
   const vibeOptions: Array<{ id: VibeStyle; label: string; emoji: string; description: string }> = [
@@ -122,6 +124,24 @@ export const SettingsScreen: React.FC = () => {
             })}
           </View>
         </View>
+
+        {/* Admin Section - Only visible to admins */}
+        {isAdmin && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Admin</Text>
+            <TouchableOpacity
+              style={[styles.adminButton, { backgroundColor: colors.primary }]}
+              onPress={() => navigation.navigate('AdminDashboard')}
+              accessible={true}
+              accessibilityRole="button"
+              accessibilityLabel="Open Admin Dashboard"
+            >
+              <Ionicons name="shield-checkmark" size={24} color="#fff" />
+              <Text style={styles.adminButtonText}>Admin Dashboard</Text>
+              <Ionicons name="chevron-forward" size={24} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Account Section */}
         <View style={styles.section}>
@@ -261,6 +281,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     fontFamily: 'Inter_600SemiBold',
+  },
+  adminButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    gap: 12,
+  },
+  adminButtonText: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
+    color: '#fff',
   },
 });
 

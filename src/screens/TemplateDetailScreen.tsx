@@ -18,6 +18,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../../App';
 import { supabase } from '../lib/supabase';
+import { trackAffiliateClick } from '../lib/admin';
 import { LoopTemplateWithDetails, TemplateTask } from '../types/loop';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -251,11 +252,18 @@ export function TemplateDetailScreen({ navigation, route }: Props) {
         },
         {
           text: 'Open Link',
-          onPress: () => {
-            Linking.openURL(template.affiliate_link!).catch((err) => {
-              console.error('Error opening link:', err);
-              Alert.alert('Error', 'Could not open the link');
-            });
+          onPress: async () => {
+            try {
+              // Track the affiliate click and open the link
+              await trackAffiliateClick(template.id, template.affiliate_link!);
+            } catch (err) {
+              console.error('Error tracking/opening affiliate link:', err);
+              // Fallback: still try to open the link even if tracking fails
+              Linking.openURL(template.affiliate_link!).catch((linkErr) => {
+                console.error('Error opening link:', linkErr);
+                Alert.alert('Error', 'Could not open the link');
+              });
+            }
           },
         },
       ]

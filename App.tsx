@@ -19,6 +19,11 @@ import { TemplateLibraryScreen } from './src/screens/TemplateLibraryScreen';
 import { TemplateDetailScreen } from './src/screens/TemplateDetailScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
+import { AdminDashboardScreen } from './src/screens/admin/AdminDashboardScreen';
+import { AdminTemplatesScreen } from './src/screens/admin/AdminTemplatesScreen';
+import { AdminCreatorsScreen } from './src/screens/admin/AdminCreatorsScreen';
+import { AdminUsersScreen } from './src/screens/admin/AdminUsersScreen';
+import { AdminAffiliatesScreen } from './src/screens/admin/AdminAffiliatesScreen';
 
 export type RootStackParamList = {
   Onboarding: undefined;
@@ -28,6 +33,11 @@ export type RootStackParamList = {
   TemplateLibrary: undefined;
   TemplateDetail: { templateId: string };
   Settings: undefined;
+  AdminDashboard: undefined;
+  AdminTemplates: undefined;
+  AdminCreators: undefined;
+  AdminUsers: undefined;
+  AdminAffiliates: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -109,6 +119,11 @@ export default function App() {
               <Stack.Screen name="TemplateLibrary" component={TemplateLibraryScreen} />
               <Stack.Screen name="TemplateDetail" component={TemplateDetailScreen} />
               <Stack.Screen name="Settings" component={SettingsScreen} />
+              <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
+              <Stack.Screen name="AdminTemplates" component={AdminTemplatesScreen} />
+              <Stack.Screen name="AdminCreators" component={AdminCreatorsScreen} />
+              <Stack.Screen name="AdminUsers" component={AdminUsersScreen} />
+              <Stack.Screen name="AdminAffiliates" component={AdminAffiliatesScreen} />
             </Stack.Navigator>
           </NavigationContainer>
           <StatusBar style="auto" />
