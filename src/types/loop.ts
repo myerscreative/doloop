@@ -64,57 +64,6 @@ export interface UserStreak {
   updated_at: string;
 }
 
-export interface LoopMember {
-  loop_id: string;
-  user_id: string;
-  role: 'owner' | 'member';
-  joined_at: string;
-}
-
-export interface Tag {
-  id: string;
-  user_id: string;
-  name: string;
-  color: string;
-  created_at: string;
-}
-
-export interface TaskTag {
-  task_id: string;
-  tag_id: string;
-  created_at: string;
-}
-
-export interface Attachment {
-  id: string;
-  task_id: string;
-  file_name: string;
-  file_url: string;
-  file_type: string; // mime type
-  file_size: number; // bytes
-  uploaded_by: string; // user_id
-  created_at: string;
-}
-
-export interface Subtask {
-  id: string;
-  parent_task_id: string;
-  description: string;
-  status: TaskStatus;
-  sort_order: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface TaskReminder {
-  id: string;
-  task_id: string;
-  user_id: string;
-  reminder_at: string; // ISO date string
-  is_sent: boolean;
-  created_at: string;
-}
-
 /**
  * Loop Library / Template Types
  */
@@ -198,10 +147,7 @@ export interface LoopTemplateWithDetails extends LoopTemplate {
 export type LoopType = 'personal' | 'work' | 'daily' | 'shared';
 
 export interface TaskWithDetails extends Task {
-  subtasks?: Subtask[];
-  attachments?: Attachment[];
-  tag_details?: Tag[]; // Populated tag objects
-  reminder?: TaskReminder;
+  // Extended properties are now part of the base Task interface
 }
 
 export interface LoopWithTasks extends Loop {
