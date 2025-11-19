@@ -23,12 +23,34 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
+// Use localStorage directly for web to avoid AsyncStorage issues
+const storage = Platform.OS === 'web'
+  ? {
+      getItem: async (key: string) => {
+        if (typeof window !== 'undefined') {
+          return window.localStorage.getItem(key);
+        }
+        return null;
+      },
+      setItem: async (key: string, value: string) => {
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem(key, value);
+        }
+      },
+      removeItem: async (key: string) => {
+        if (typeof window !== 'undefined') {
+          window.localStorage.removeItem(key);
+        }
+      },
+    }
+  : AsyncStorage;
+
 export const supabase = createClient(
   supabaseUrl,
   supabaseAnonKey,
   {
     auth: {
-      storage: AsyncStorage,
+      storage,
       autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: false,
@@ -39,6 +61,16 @@ export const supabase = createClient(
     global: {
       headers: {
         'x-my-custom-header': 'doloop-mobile',
+      },
+      fetch: (url, options = {}) => {
+        // Add timeout to prevent hanging on web
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+        return fetch(url, {
+          ...options,
+          signal: controller.signal,
+        }).finally(() => clearTimeout(timeoutId));
       },
     },
     realtime: {

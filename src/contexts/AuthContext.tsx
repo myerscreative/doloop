@@ -20,9 +20,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Get initial session
+    // Get initial session with timeout
     const getInitialSession = async () => {
       console.log('[Auth] Checking initial session...');
+
+      // Set a safety timeout to ensure loading state completes
+      const timeoutId = setTimeout(() => {
+        console.warn('[Auth] Session check timed out, continuing without session');
+        setLoading(false);
+      }, 5000);
+
       try {
         const { data: { session } } = await supabase.auth.getSession();
         console.log('[Auth] Initial session:', session ? 'Found' : 'None');
@@ -30,7 +37,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(session?.user ?? null);
       } catch (error) {
         console.warn('[Auth] Error getting session:', error);
+        // Continue without session on error
+        setSession(null);
+        setUser(null);
       } finally {
+        clearTimeout(timeoutId);
         console.log('[Auth] Loading complete');
         setLoading(false);
       }
