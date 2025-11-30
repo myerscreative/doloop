@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../../App';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -44,10 +45,6 @@ import { ADMIN_HELP_CONTENT } from '../../constants/adminHelp';
 
 type AdminTemplatesNavigationProp = NativeStackNavigationProp<RootStackParamList, 'AdminTemplates'>;
 
-interface Props {
-  navigation: AdminTemplatesNavigationProp;
-}
-
 interface TemplateFormData {
   creator_id: string;
   title: string;
@@ -60,7 +57,8 @@ interface TemplateFormData {
   tasks: Array<{ description: string; display_order: number }>;
 }
 
-export function AdminTemplatesScreen({ navigation }: Props) {
+export const AdminTemplatesScreen: React.FC = () => {
+  const navigation = useNavigation<AdminTemplatesNavigationProp>();
   const { colors } = useTheme();
   const { isAdmin, loading: adminLoading } = useAdmin();
   const [templates, setTemplates] = useState<LoopTemplate[]>([]);

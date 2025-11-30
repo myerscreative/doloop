@@ -274,7 +274,7 @@ export const LoopDetailScreen: React.FC = () => {
           text: 'Edit',
           onPress: () => {
             setEditingTask(task);
-            setShowAddTaskModal(true);
+            setModalVisible(true);
           },
         },
         {

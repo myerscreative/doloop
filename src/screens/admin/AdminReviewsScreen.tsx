@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../../App';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -30,16 +31,13 @@ import {
 
 type AdminReviewsNavigationProp = NativeStackNavigationProp<RootStackParamList, 'AdminReviews'>;
 
-interface Props {
-  navigation: AdminReviewsNavigationProp;
-}
-
 interface ReviewFormData {
   rating: number;
   review_text: string;
 }
 
-export function AdminReviewsScreen({ navigation }: Props) {
+export const AdminReviewsScreen: React.FC = () => {
+  const navigation = useNavigation<AdminReviewsNavigationProp>();
   const { colors } = useTheme();
   const { isAdmin, loading: adminLoading } = useAdmin();
   const [reviews, setReviews] = useState<TemplateReview[]>([]);

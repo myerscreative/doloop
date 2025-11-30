@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../../App';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -24,11 +25,8 @@ import { ADMIN_HELP_CONTENT } from '../../constants/adminHelp';
 
 type AdminUsersNavigationProp = NativeStackNavigationProp<RootStackParamList, 'AdminUsers'>;
 
-interface Props {
-  navigation: AdminUsersNavigationProp;
-}
-
-export function AdminUsersScreen({ navigation }: Props) {
+export const AdminUsersScreen: React.FC = () => {
+  const navigation = useNavigation<AdminUsersNavigationProp>();
   const { colors } = useTheme();
   const { isAdmin, loading: adminLoading } = useAdmin();
   const [users, setUsers] = useState<UserSummary[]>([]);

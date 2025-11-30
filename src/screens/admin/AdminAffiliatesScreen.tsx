@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../../App';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -29,13 +30,10 @@ import { ADMIN_HELP_CONTENT } from '../../constants/adminHelp';
 
 type AdminAffiliatesNavigationProp = NativeStackNavigationProp<RootStackParamList, 'AdminAffiliates'>;
 
-interface Props {
-  navigation: AdminAffiliatesNavigationProp;
-}
-
 type SortKey = 'clicks' | 'conversions' | 'revenue' | 'rate';
 
-export function AdminAffiliatesScreen({ navigation }: Props) {
+export const AdminAffiliatesScreen: React.FC = () => {
+  const navigation = useNavigation<AdminAffiliatesNavigationProp>();
   const { colors } = useTheme();
   const { isAdmin, loading: adminLoading } = useAdmin();
   const [templates, setTemplates] = useState<TemplatePerformance[]>([]);

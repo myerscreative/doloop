@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../../App';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -34,10 +35,6 @@ import { ADMIN_HELP_CONTENT } from '../../constants/adminHelp';
 
 type AdminCreatorsNavigationProp = NativeStackNavigationProp<RootStackParamList, 'AdminCreators'>;
 
-interface Props {
-  navigation: AdminCreatorsNavigationProp;
-}
-
 interface CreatorFormData {
   name: string;
   bio: string;
@@ -46,7 +43,8 @@ interface CreatorFormData {
   website_url: string;
 }
 
-export function AdminCreatorsScreen({ navigation }: Props) {
+export const AdminCreatorsScreen: React.FC = () => {
+  const navigation = useNavigation<AdminCreatorsNavigationProp>();
   const { colors } = useTheme();
   const { isAdmin, loading: adminLoading } = useAdmin();
   const [creators, setCreators] = useState<TemplateCreator[]>([]);

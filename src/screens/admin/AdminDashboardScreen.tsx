@@ -14,6 +14,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../../App';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -24,11 +25,8 @@ import { ADMIN_HELP_CONTENT } from '../../constants/adminHelp';
 
 type AdminDashboardNavigationProp = NativeStackNavigationProp<RootStackParamList, 'AdminDashboard'>;
 
-interface Props {
-  navigation: AdminDashboardNavigationProp;
-}
-
-export function AdminDashboardScreen({ navigation }: Props) {
+export const AdminDashboardScreen: React.FC = () => {
+  const navigation = useNavigation<AdminDashboardNavigationProp>();
   const { colors } = useTheme();
   const { isAdmin, loading: adminLoading } = useAdmin();
   const [stats, setStats] = useState<DashboardStats | null>(null);
